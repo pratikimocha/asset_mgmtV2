@@ -48,9 +48,26 @@ def list():
     page = max(1, request.args.get("page", 1, type=int))
     per_page = current_app.config.get("ITEMS_PER_PAGE", 50)
 
-    query = Asset.query.outerjoin(
+    issue_counts = (
+        db.session.query(
+            Issue.asset_id.label("asset_id"),
+            func.count(Issue.id).label("open_issues_count"),
+        )
+        .filter(Issue.status.in_(["open", "in-progress"]))
+        .group_by(Issue.asset_id)
+        .subquery("issue_counts")
+    )
+
+    query = db.session.query(
+        Asset,
+        Assignment.user_name.label("current_user"),
+        func.coalesce(issue_counts.c.open_issues_count, 0).label("open_issues_count"),
+    ).outerjoin(
         Assignment,
         (Assignment.asset_id == Asset.id) & Assignment.returned_at.is_(None)
+    ).outerjoin(
+        issue_counts,
+        issue_counts.c.asset_id == Asset.id,
     )
 
     if q:
@@ -78,20 +95,17 @@ def list():
         query = query.filter(Asset.warranty_expiry >= expiry_soon)
 
     if issues_f == "1":
-        from app.models.issue import Issue as _Issue
-        query = query.join(
-            _Issue,
-            (_Issue.asset_id == Asset.id) & _Issue.status.in_(["open", "in-progress"])
-        ).distinct()
+        query = query.filter(func.coalesce(issue_counts.c.open_issues_count, 0) > 0)
     elif issues_f == "0":
-        from app.models.issue import Issue as _Issue
-        open_asset_ids = db.session.query(_Issue.asset_id).filter(
-            _Issue.status.in_(["open", "in-progress"])
-        ).subquery()
-        query = query.filter(~Asset.id.in_(open_asset_ids))
+        query = query.filter(func.coalesce(issue_counts.c.open_issues_count, 0) == 0)
 
     total = query.count()
-    assets = query.order_by(Asset.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    rows = query.order_by(Asset.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    assets = []
+    for asset, current_user, open_issues_count in rows:
+        asset.current_user = current_user
+        asset.current_open_issues_count = int(open_issues_count or 0)
+        assets.append(asset)
     pages = max(1, (total + per_page - 1) // per_page)
 
     categories = [r[0] for r in db.session.query(func.distinct(Asset.category)).filter(Asset.category.isnot(None)).all()]
@@ -152,12 +166,25 @@ def detail(asset_id):
     assignments = Assignment.query.filter_by(asset_id=asset_id).order_by(Assignment.assigned_date.desc()).all()
     open_issues = Issue.query.filter_by(asset_id=asset_id).filter(Issue.status.in_(["open", "in-progress"])).all()
     closed_issues = Issue.query.filter_by(asset_id=asset_id, status="closed").order_by(Issue.date_reported.desc()).all()
+    active_assignment = next((a for a in assignments if a.returned_at is None), None)
     from app.models.ticket import Ticket
     helpdesk_tickets = Ticket.query.filter_by(asset_id=asset_id).order_by(Ticket.created_at.desc()).all()
+    from app.services.assets import compute_age, compute_warranty_state, compute_health_score
+    age_details = compute_age(asset.purchase_date)
+    warranty_state = compute_warranty_state(asset.warranty_expiry)
+    health_score = compute_health_score(
+        age_years=age_details["years"],
+        open_issues=len(open_issues),
+        repair_count=len(asset.repairs),
+    )
     return render_template("assets/detail.html",
         asset=asset, assignments=assignments,
         open_issues=open_issues, closed_issues=closed_issues,
         helpdesk_tickets=helpdesk_tickets,
+        active_assignment=active_assignment,
+        age_details=age_details,
+        warranty_state=warranty_state,
+        health_score=health_score,
         valid_statuses=VALID_STATUSES)
 
 # ─── Edit ──────────────────────────────────────────────────────────────────

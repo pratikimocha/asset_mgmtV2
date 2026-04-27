@@ -135,8 +135,8 @@
         <td style="color: #64748b; font-size: 13px;">{{ asset.category or '—' }}</td>
         <td><span class="badge-status-{{ asset.status }}">{{ asset.status.title() }}</span></td>
         <td style="font-size: 13px;">
-          {% if asset.active_assignment %}
-          <span style="color: #0f172a;">{{ asset.active_assignment.user_name }}</span>
+          {% if asset.current_user %}
+          <span style="color: #0f172a;">{{ asset.current_user }}</span>
           {% else %}
           <span style="color: #94a3b8;">—</span>
           {% endif %}
@@ -155,8 +155,8 @@
           {% endif %}
         </td>
         <td>
-          {% if asset.open_issues_count > 0 %}
-          <span style="background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600;">{{ asset.open_issues_count }}</span>
+          {% if asset.current_open_issues_count > 0 %}
+          <span style="background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600;">{{ asset.current_open_issues_count }}</span>
           {% else %}
           <span style="color: #94a3b8; font-size: 12px;">—</span>
           {% endif %}

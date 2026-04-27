@@ -3,6 +3,7 @@ import os
 import secrets
 from flask import Flask, g, render_template, request, jsonify
 from datetime import datetime, timezone, timedelta
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import config
 from app.extensions import db, migrate, csrf, limiter
@@ -12,6 +13,7 @@ def create_app(config_name=None):
     """Create and configure Flask app."""
     app = Flask(__name__)
     app.config.from_object(config)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     # Initialize extensions
     db.init_app(app)

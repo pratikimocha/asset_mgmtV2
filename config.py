@@ -31,7 +31,7 @@ class Config:
         'pool_size': 5,          # 5 per worker is enough; avoids excess SSL handshakes
         'max_overflow': 2,       # allow 2 burst connections before blocking
         'pool_recycle': 1800,    # recycle every 30 min (Azure PostgreSQL drops idle connections)
-        'pool_pre_ping': False,  # disabled — rely on recycle instead; pre_ping adds a DB round-trip per request
+        'pool_pre_ping': True,   # Azure can silently drop idle connections; pre_ping avoids 10-20s stale-connection stalls
         'pool_timeout': 10,      # fail fast if no connection available
         'connect_args': {
             'connect_timeout': 10,
@@ -59,7 +59,7 @@ class Config:
 
     # Rate limiting
     RATELIMIT_ENABLED = True
-    RATELIMIT_DEFAULT = '200 per day, 50 per hour'
+    RATELIMIT_DEFAULT = '10000 per day, 1000 per hour'
     RATELIMIT_STORAGE_URI = 'memory://'
 
     # Azure AD / MSAL

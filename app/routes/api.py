@@ -21,7 +21,10 @@ def search():
     ever_assigned = db.session.query(Assignment.asset_id).filter(
         Assignment.user_name.ilike(f'%{q}%')
     ).subquery()
-    results = db.session.query(Asset).outerjoin(
+    results = db.session.query(
+        Asset,
+        Assignment.user_name.label('current_user'),
+    ).outerjoin(
         Assignment, (Assignment.asset_id == Asset.id) & Assignment.returned_at.is_(None)
     ).filter(
         Asset.serial_number.ilike(f'%{q}%') |
@@ -31,13 +34,13 @@ def search():
         Asset.id.in_(ever_assigned)
     ).limit(8).all()
     return jsonify([{
-        'id': a.id,
-        'serial_number': a.serial_number,
-        'model': a.model or '',
-        'manufacturer': a.manufacturer or '',
-        'status': a.status,
-        'current_user': a.active_assignment.user_name if a.active_assignment else None,
-    } for a in results])
+        'id': asset.id,
+        'serial_number': asset.serial_number,
+        'model': asset.model or '',
+        'manufacturer': asset.manufacturer or '',
+        'status': asset.status,
+        'current_user': current_user,
+    } for asset, current_user in results])
 
 @bp.route('/notifications')
 @login_required
