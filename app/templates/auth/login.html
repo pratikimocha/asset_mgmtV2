@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In — iMocha Asset Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.login-card { background: #fff; border-radius: 20px; padding: 48px 40px; width: 420px; max-width: 95vw; box-shadow: 0 25px 50px rgba(0,0,0,0.4); }
+.logo { text-align: center; margin-bottom: 28px; }
+.logo img { height: 38px; width: auto; }
+.card-title { font-size: 20px; font-weight: 700; color: #0f172a; text-align: center; margin-bottom: 4px; }
+.card-subtitle { font-size: 13px; color: #64748b; text-align: center; margin-bottom: 28px; }
+.setup-banner { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #1e40af; margin-bottom: 20px; }
+.error-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; color: #dc2626; font-size: 13px; margin-bottom: 20px; }
+.form-group { margin-bottom: 16px; }
+label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+input[type="text"], input[type="password"] {
+  width: 100%; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 10px 13px;
+  font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+  color: #0f172a;
+}
+input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+.btn-signin {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: #0f172a; color: white; border: none; border-radius: 10px;
+  padding: 13px 24px; font-size: 15px; font-weight: 600; width: 100%;
+  cursor: pointer; transition: background 0.2s, transform 0.1s; font-family: inherit;
+}
+.btn-signin:hover { background: #1e293b; transform: translateY(-1px); }
+.btn-signin:active { transform: translateY(0); }
+.footer { margin-top: 28px; font-size: 12px; color: #94a3b8; text-align: center; }
+.footer a { color: #3b82f6; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="logo">
+    <img src="/static/images/imocha-logo.png" alt="iMocha">
+  </div>
+
+  {% if setup %}
+  <div class="card-title">Create Admin Account</div>
+  <div class="card-subtitle">First-time setup — this account will have full admin access</div>
+  <div class="setup-banner">No users exist yet. Set up your admin account to get started.</div>
+  {% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+  <form method="post" action="/login">
+    <input type="hidden" name="action" value="setup">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" name="display_name" placeholder="e.g. Pratik Shinde" required autocomplete="name">
+    </div>
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" name="username" placeholder="e.g. pratik.shinde" required autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" name="password" placeholder="Min. 8 characters" required autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label>Confirm Password</label>
+      <input type="password" name="password2" placeholder="Repeat password" required autocomplete="new-password">
+    </div>
+    <button type="submit" class="btn-signin">Create Account &amp; Sign In</button>
+  </form>
+
+  {% else %}
+  <div class="card-title">Sign In</div>
+  <div class="card-subtitle">iMocha IT Department</div>
+  {% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+  <form method="post" action="/login">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" name="username" placeholder="Your username" required autofocus autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" name="password" placeholder="Your password" required autocomplete="current-password">
+    </div>
+    <button type="submit" class="btn-signin">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+      Sign In
+    </button>
+  </form>
+  {% endif %}
+
+  <div class="footer"><a href="mailto:it@imocha.io">it@imocha.io</a></div>
+</div>
+</body>
+</html>

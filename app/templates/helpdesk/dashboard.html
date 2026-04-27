@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Helpdesk Dashboard{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Helpdesk Dashboard</h1>
+    <p class="page-subtitle">{{ now().strftime('%A, %B %d %Y') }}</p>
+  </div>
+  <a href="{{ url_for('helpdesk.ticket_new') }}" class="btn btn-primary" style="background: #7c3aed; border-color: #7c3aed;">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    New Ticket
+  </a>
+</div>
+
+<!-- KPI row -->
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px;">
+
+  <a href="{{ url_for('helpdesk.ticket_queue', view='unsolved') }}" style="text-decoration: none;">
+    <div class="card kpi-card" style="padding: 16px; text-align: center; margin-bottom: 0;">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #7c3aed; margin-bottom: 6px;">Open</div>
+      <div style="font-size: 32px; font-weight: 800; color: #0f172a;">{{ stats.total_open }}</div>
+      <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">All unsolved</div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('helpdesk.ticket_queue', view='unsolved', priority='critical') }}" style="text-decoration: none;">
+    <div class="card kpi-card" style="padding: 16px; text-align: center; margin-bottom: 0; {% if stats.critical > 0 %}background: #fef2f2; border-color: #fecaca;{% endif %}">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #dc2626; margin-bottom: 6px;">Critical</div>
+      <div style="font-size: 32px; font-weight: 800; color: {% if stats.critical > 0 %}#dc2626{% else %}#0f172a{% endif %};">{{ stats.critical }}</div>
+      <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">High priority</div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('helpdesk.ticket_queue', view='unassigned') }}" style="text-decoration: none;">
+    <div class="card kpi-card" style="padding: 16px; text-align: center; margin-bottom: 0; {% if stats.unassigned > 0 %}background: #fefce8; border-color: #fde68a;{% endif %}">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #ca8a04; margin-bottom: 6px;">Unassigned</div>
+      <div style="font-size: 32px; font-weight: 800; color: {% if stats.unassigned > 0 %}#ca8a04{% else %}#0f172a{% endif %};">{{ stats.unassigned }}</div>
+      <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Need agent</div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('helpdesk.ticket_queue', view='breached') }}" style="text-decoration: none;">
+    <div class="card kpi-card" style="padding: 16px; text-align: center; margin-bottom: 0; {% if stats.sla_breached > 0 %}background: #fef2f2; border-color: #fecaca;{% endif %}">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #ea580c; margin-bottom: 6px;">SLA Breached</div>
+      <div style="font-size: 32px; font-weight: 800; color: {% if stats.sla_breached > 0 %}#dc2626{% else %}#0f172a{% endif %};">{{ stats.sla_breached }}</div>
+      <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Past due</div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('helpdesk.ticket_queue', view='unsolved') }}" style="text-decoration: none;">
+    <div class="card kpi-card" style="padding: 16px; text-align: center; margin-bottom: 0; background: #f0fdf4; border-color: #bbf7d0;">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #16a34a; margin-bottom: 6px;">Solved Today</div>
+      <div style="font-size: 32px; font-weight: 800; color: #15803d;">{{ stats.solved_today }}</div>
+      <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Resolved</div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('helpdesk.ticket_queue', view='unsolved') }}" style="text-decoration: none;">
+    <div class="card kpi-card" style="padding: 16px; text-align: center; margin-bottom: 0;">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 6px;">Pending</div>
+      <div style="font-size: 32px; font-weight: 800; color: #0f172a;">{{ stats.pending }}</div>
+      <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Awaiting reply</div>
+    </div>
+  </a>
+
+</div>
+
+<!-- Middle row: 3 columns -->
+<div style="display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 20px; margin-bottom: 20px;">
+
+  <!-- By Status -->
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">By Status</h3></div>
+    {% set status_data = [
+      ('new',     stats.new,     '#1d4ed8', '#eff6ff', 'unsolved'),
+      ('open',    stats.open,    '#15803d', '#f0fdf4', 'unsolved'),
+      ('pending', stats.pending, '#92400e', '#fef3c7', 'unsolved'),
+      ('on_hold', stats.on_hold, '#475569', '#f1f5f9', 'unsolved'),
+    ] %}
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      {% for sname, scount, fg, bg, vw in status_data %}
+      {% set total_open = stats.total_open or 1 %}
+      <a href="{{ url_for('helpdesk.ticket_queue', view=vw) }}" style="text-decoration: none; display: block;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span style="font-size: 12px; color: #334155; font-weight: 500;">{{ sname.replace('_',' ').title() }}</span>
+          <span style="font-size: 12px; font-weight: 700; color: {{ fg }};">{{ scount }}</span>
+        </div>
+        <div style="height: 6px; background: #f1f5f9; border-radius: 4px; overflow: hidden;">
+          <div style="height: 100%; width: {{ [scount / total_open * 100, 100]|min|int }}%; background: {{ fg }}; border-radius: 4px; transition: width 0.4s;"></div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- By Priority -->
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">By Priority</h3></div>
+    {% set pri_data = [
+      ('critical', priority_breakdown.critical, '#dc2626', '#fef2f2'),
+      ('high',     priority_breakdown.high,     '#ea580c', '#fff7ed'),
+      ('medium',   priority_breakdown.medium,   '#ca8a04', '#fefce8'),
+      ('low',      priority_breakdown.low,      '#16a34a', '#f0fdf4'),
+    ] %}
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      {% set max_pri = [priority_breakdown.values()|list|max, 1]|max %}
+      {% for pname, pcount, fg, bg in pri_data %}
+      <a href="{{ url_for('helpdesk.ticket_queue', view='unsolved', priority=pname) }}" style="text-decoration: none; display: block;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span style="font-size: 12px; color: #334155; font-weight: 500; display: flex; align-items: center; gap: 6px;">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ fg }};"></span>
+            {{ pname.title() }}
+          </span>
+          <span style="font-size: 12px; font-weight: 700; color: {{ fg }};">{{ pcount }}</span>
+        </div>
+        <div style="height: 6px; background: #f1f5f9; border-radius: 4px; overflow: hidden;">
+          <div style="height: 100%; width: {{ [pcount / max_pri * 100, 100]|min|int }}%; background: {{ fg }}; border-radius: 4px; transition: width 0.4s;"></div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Open by Category — compact clickable tiles -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Open by Category</h3>
+      <a href="{{ url_for('helpdesk.ticket_queue', view='unsolved') }}" style="font-size: 11px; color: #7c3aed; font-weight: 600; text-decoration: none;">View queue →</a>
+    </div>
+
+    {% if cat_breakdown %}
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      {% for cid, cname, ccolor, ccount in cat_breakdown %}
+      <a href="{{ url_for('helpdesk.ticket_queue', view='unsolved', category=cid) }}"
+         class="cat-tile"
+         style="text-decoration: none; display: flex; align-items: center; gap: 8px;
+                padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;
+                background: #fafafa; transition: background 0.15s, border-color 0.15s;
+                border-left: 3px solid {{ ccolor }}; min-width: 0;">
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 12px; font-weight: 600; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ cname }}</div>
+        </div>
+        <span style="flex-shrink: 0; font-size: 12px; font-weight: 800;
+                     background: {{ ccolor }}1a; color: {{ ccolor }};
+                     padding: 2px 8px; border-radius: 10px; min-width: 28px; text-align: center;">
+          {{ ccount }}
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 30px; color: #94a3b8; font-size: 13px;">No open tickets</div>
+    {% endif %}
+
+    {% if cat_count > 8 %}
+    <div style="margin-top: 10px; text-align: right;">
+      <a href="{{ url_for('helpdesk.categories') }}" style="font-size: 11px; color: #94a3b8; text-decoration: none;">{{ cat_count - 8 }} more categories →</a>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Recent tickets -->
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Recent Tickets</h3>
+    <a href="{{ url_for('helpdesk.ticket_queue') }}" style="font-size: 12px; color: #7c3aed; font-weight: 500; text-decoration: none;">View all →</a>
+  </div>
+  {% if recent %}
+  <table class="table" style="margin: 0;">
+    <thead>
+      <tr>
+        <th style="width: 90px;">#</th>
+        <th>Subject</th>
+        <th style="width: 130px;">Requester</th>
+        <th style="width: 90px;">Priority</th>
+        <th style="width: 90px;">Status</th>
+        <th style="width: 100px;">Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in recent %}
+      {% set sbg, sfg = t.status_colors %}
+      {% set pbg, pfg = t.priority_colors %}
+      <tr style="cursor: pointer;" data-href="{{ url_for('helpdesk.ticket_detail', number=t.number) }}">
+        <td><span style="font-size: 12px; font-weight: 700; color: #7c3aed;">{{ t.number }}</span></td>
+        <td style="font-size: 13px; font-weight: 500; color: #0f172a; max-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ t.title }}</td>
+        <td style="font-size: 12px; color: #64748b;">{{ t.requester_name }}</td>
+        <td><span style="font-size: 11px; font-weight: 700; background: {{ pbg }}; color: {{ pfg }}; padding: 2px 8px; border-radius: 10px; text-transform: uppercase;">{{ t.priority }}</span></td>
+        <td><span style="font-size: 11px; font-weight: 600; background: {{ sbg }}; color: {{ sfg }}; padding: 2px 9px; border-radius: 10px;">{{ t.status.replace('_',' ').title() }}</span></td>
+        <td style="font-size: 11px; color: #94a3b8;">{{ t.created_at | localtime('%d %b %H:%M') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align: center; padding: 40px; color: #94a3b8; font-size: 13px;">
+    No tickets yet. <a href="{{ url_for('helpdesk.ticket_new') }}" style="color: #7c3aed; font-weight: 500; text-decoration: none;">Create first ticket →</a>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ g.csp_nonce }}">
+document.querySelectorAll('tr[data-href]').forEach(function(row) {
+  row.addEventListener('click', function(e) {
+    if (e.target.tagName === 'A' || e.target.closest('a')) return;
+    window.location.href = row.dataset.href;
+  });
+});
+document.querySelectorAll('.kpi-card').forEach(function(card) {
+  card.addEventListener('mouseenter', function() { card.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)'; card.style.borderColor = '#c4b5fd'; });
+  card.addEventListener('mouseleave', function() { card.style.boxShadow = ''; card.style.borderColor = ''; });
+});
+document.querySelectorAll('.cat-tile').forEach(function(tile) {
+  tile.addEventListener('mouseenter', function() { tile.style.background = '#f1f5f9'; tile.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)'; });
+  tile.addEventListener('mouseleave', function() { tile.style.background = '#fafafa'; tile.style.boxShadow = ''; });
+});
+</script>
+{% endblock %}

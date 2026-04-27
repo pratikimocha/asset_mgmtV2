@@ -1,0 +1,44 @@
+# Environment — NEVER commit real secrets
+.env
+.env.local
+.env.*.local
+
+# Database backups and dumps
+*.dump
+*.sql
+*.sqlite
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Flask instance folder
+instance/
+
+# Uploads (user data — not part of source)
+app/uploads/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Azure deployment artifacts
+*.zip

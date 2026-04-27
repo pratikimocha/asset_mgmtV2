@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Sold Assets{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Sold Assets</h1>
+    <p class="page-subtitle">{{ counts.all }} asset{{ 's' if counts.all != 1 else '' }} sold in total</p>
+  </div>
+  <div style="display: flex; gap: 8px; align-items: center;">
+    <a href="{{ url_for('assets.sold', type=filter_type, export=1) }}" class="btn btn-secondary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:5px;vertical-align:-2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download CSV
+    </a>
+    <a href="{{ url_for('assets.list') }}" class="btn btn-secondary">← All Assets</a>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div style="display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap;">
+  <a href="{{ url_for('assets.sold') }}" style="text-decoration:none; flex:1; min-width:150px;">
+    <div style="background:#fff; border:1px solid #e2e8f0; border-left:3px solid #0f172a; border-radius:10px; padding:16px 20px;">
+      <div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">All Sold</div>
+      <div style="font-size:26px;font-weight:800;color:#0f172a;">{{ counts.all }}</div>
+    </div>
+  </a>
+  <a href="{{ url_for('assets.sold', type='internal') }}" style="text-decoration:none; flex:1; min-width:150px;">
+    <div style="background:#fff; border:1px solid #e2e8f0; border-left:3px solid #3b82f6; border-radius:10px; padding:16px 20px; {% if filter_type == 'internal' %}box-shadow:0 0 0 2px #3b82f6;{% endif %}">
+      <div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Internal (Employee)</div>
+      <div style="font-size:26px;font-weight:800;color:#1d4ed8;">{{ counts.internal }}</div>
+    </div>
+  </a>
+  <a href="{{ url_for('assets.sold', type='external') }}" style="text-decoration:none; flex:1; min-width:150px;">
+    <div style="background:#fff; border:1px solid #e2e8f0; border-left:3px solid #f59e0b; border-radius:10px; padding:16px 20px; {% if filter_type == 'external' %}box-shadow:0 0 0 2px #f59e0b;{% endif %}">
+      <div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">External (Buyer/Vendor)</div>
+      <div style="font-size:26px;font-weight:800;color:#b45309;">{{ counts.external }}</div>
+    </div>
+  </a>
+</div>
+
+<!-- Active filter chip -->
+{% if filter_type %}
+<div style="margin-bottom:16px;">
+  <span style="display:inline-flex;align-items:center;gap:6px;background:{% if filter_type == 'internal' %}#dbeafe{% else %}#fef3c7{% endif %};color:{% if filter_type == 'internal' %}#1d4ed8{% else %}#92400e{% endif %};padding:5px 12px;border-radius:20px;font-size:13px;font-weight:500;">
+    {{ 'Internal sales' if filter_type == 'internal' else 'External sales' }}
+    <a href="{{ url_for('assets.sold') }}" style="color:inherit;font-weight:700;text-decoration:none;margin-left:2px;">✕</a>
+  </span>
+</div>
+{% endif %}
+
+<!-- Table -->
+<div class="card" style="padding: 0; overflow: hidden;">
+  {% if assets %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Serial Number</th>
+        <th>Model</th>
+        <th>Category</th>
+        <th>Sale Type</th>
+        <th>Sold To</th>
+        <th>Purchase Cost</th>
+        <th>Sold Date</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for asset in assets %}
+      <tr>
+        <td>
+          <div style="font-weight: 600; font-size: 13px;">{{ asset.serial_number }}</div>
+          {% if asset.asset_tag %}<div style="font-size: 12px; color: #64748b;">{{ asset.asset_tag }}</div>{% endif %}
+        </td>
+        <td>
+          <div>{{ asset.model or '—' }}</div>
+          <div style="font-size: 12px; color: #64748b;">{{ asset.manufacturer or '' }}</div>
+        </td>
+        <td style="color: #64748b; font-size: 13px;">{{ asset.category or '—' }}</td>
+        <td>
+          {% if asset.sold_type == 'internal' %}
+          <span style="background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;">Internal</span>
+          {% else %}
+          <span style="background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;">External</span>
+          {% endif %}
+        </td>
+        <td style="font-weight: 500;">{{ asset.sold_to or '—' }}</td>
+        <td>{{ '₹{:,.0f}'.format(asset.cost) if asset.cost else '—' }}</td>
+        <td style="font-size: 12px; color: #64748b; white-space:nowrap;">{{ asset.updated_at.strftime('%b %d, %Y') if asset.updated_at else '—' }}</td>
+        <td><a href="{{ url_for('assets.detail', asset_id=asset.id) }}" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state" style="padding: 60px 0; text-align: center;">
+    <div style="font-size: 40px; margin-bottom: 12px;">🏷️</div>
+    <p style="color: #64748b;">No {{ filter_type + ' ' if filter_type else '' }}sold assets</p>
+    {% if filter_type %}
+    <a href="{{ url_for('assets.sold') }}" style="color:#3b82f6;font-size:13px;text-decoration:none;">View all sold assets</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

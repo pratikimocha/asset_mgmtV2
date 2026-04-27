@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Multi-Asset View{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Assets by User</h1>
+    <p class="page-subtitle">{{ 'Assets assigned to: ' + user_name if user_name else 'Search for a user' }}</p>
+  </div>
+  <a href="{{ url_for('dashboard.index') }}" class="btn btn-secondary">← Dashboard</a>
+</div>
+
+<form method="get" class="filters-bar" style="margin-bottom: 24px;">
+  <input type="text" name="user_name" value="{{ user_name }}" placeholder="Enter employee name..." class="filter-input" style="flex: 1; max-width: 400px;">
+  <button type="submit" class="btn btn-primary">Search</button>
+</form>
+
+{% if user_name %}
+{% if assets %}
+<div class="card" style="padding: 0; overflow: hidden;">
+  <table class="table">
+    <thead><tr><th>Serial Number</th><th>Model</th><th>Category</th><th>Status</th><th>Assigned Date</th><th>Condition</th><th></th></tr></thead>
+    <tbody>
+      {% for item in assets %}
+      <tr>
+        <td style="font-weight: 600; font-size: 13px;">{{ item.asset.serial_number }}</td>
+        <td>{{ item.asset.model or '—' }}</td>
+        <td style="font-size: 13px; color: #64748b;">{{ item.asset.category or '—' }}</td>
+        <td><span class="badge-status-{{ item.asset.status }}">{{ item.asset.status.title() }}</span></td>
+        <td style="font-size: 13px;">{{ item.assignment.assigned_date.strftime('%b %d, %Y') if item.assignment.assigned_date else '—' }}</td>
+        <td style="font-size: 13px; color: #64748b;">{{ item.assignment.condition_on_issue or '—' }}</td>
+        <td><a href="{{ url_for('assets.detail', asset_id=item.asset.id) }}" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state" style="padding: 48px 0; text-align: center;">
+  <div style="font-size: 32px; margin-bottom: 12px;">🔍</div>
+  <p style="color: #64748b;">No assets assigned to "{{ user_name }}"</p>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

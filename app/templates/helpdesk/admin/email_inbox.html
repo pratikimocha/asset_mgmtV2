@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}Email Integration{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Email Integration</h1>
+    <p class="page-subtitle">
+      {% if mail_cfg.provider == 'graph' %}Microsoft 365 / Graph API{% else %}IMAP/SMTP{% endif %}
+      inbox log · configuration · manual controls
+    </p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <form method="POST" action="{{ url_for('helpdesk.email_poll_now') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-secondary">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:5px;"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Poll Inbox Now
+      </button>
+    </form>
+    <button id="btn-test-email" class="btn btn-primary" style="background:#7c3aed;border-color:#7c3aed;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:5px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      Send Test Email
+    </button>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+  <div style="margin-bottom:14px;padding:11px 16px;border-radius:8px;background:{{ '#d1fae5' if cat=='success' else '#fee2e2' }};color:{{ '#065f46' if cat=='success' else '#991b1b' }};font-size:13px;">{{ msg }}</div>
+  {% endfor %}
+{% endwith %}
+
+<!-- Config status banner -->
+<div class="card" style="padding:16px 20px;margin-bottom:20px;{% if mail_cfg.configured %}border-color:#6ee7b7;background:#f0fdf4;{% else %}border-color:#fecaca;background:#fef2f2;{% endif %}">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span style="font-size:20px;">{% if mail_cfg.configured %}✅{% else %}⚠️{% endif %}</span>
+    <div style="flex:1;">
+      <div style="font-weight:700;font-size:13px;color:{% if mail_cfg.configured %}#065f46{% else %}#991b1b{% endif %};">
+        {% if mail_cfg.configured %}
+          Email integration active
+          <span style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:10px;background:{% if mail_cfg.provider=='graph' %}#dbeafe{% else %}#f0fdf4{% endif %};color:{% if mail_cfg.provider=='graph' %}#1e40af{% else %}#166534{% endif %};font-weight:600;">
+            {% if mail_cfg.provider == 'graph' %}Microsoft 365{% else %}IMAP/SMTP{% endif %}
+          </span>
+        {% else %}
+          Email integration not configured
+        {% endif %}
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-top:2px;">
+        {% if mail_cfg.configured %}
+          {% if mail_cfg.provider == 'graph' %}
+            Mailbox: <strong>{{ mail_cfg.mailbox }}</strong> · Tenant: <strong>{{ mail_cfg.tenant_id }}</strong> · Client: <strong>{{ mail_cfg.client_id }}</strong> · Poll: every {{ mail_cfg.poll_interval }}s · Auto-reply: {{ 'on' if mail_cfg.auto_reply == '1' else 'off' }}
+          {% else %}
+            IMAP: <strong>{{ mail_cfg.imap_server }}</strong> · SMTP: <strong>{{ mail_cfg.smtp_server }}</strong> · Account: <strong>{{ mail_cfg.username }}</strong> · Poll: every {{ mail_cfg.poll_interval }}s · Auto-reply: {{ 'on' if mail_cfg.auto_reply == '1' else 'off' }}
+          {% endif %}
+        {% else %}
+          {% if mail_cfg.provider == 'graph' %}
+            Set <code style="background:#f1f5f9;padding:0 5px;border-radius:3px;">MAIL_TENANT_ID</code>, <code style="background:#f1f5f9;padding:0 5px;border-radius:3px;">MAIL_CLIENT_ID</code>, <code style="background:#f1f5f9;padding:0 5px;border-radius:3px;">MAIL_CLIENT_SECRET</code>, <code style="background:#f1f5f9;padding:0 5px;border-radius:3px;">MAIL_MAILBOX</code> in your <code style="background:#f1f5f9;padding:0 5px;border-radius:3px;">.env</code> file.
+          {% else %}
+            Set <code style="background:#f1f5f9;padding:0 5px;border-radius:3px;">MAIL_IMAP_SERVER</code>, <code style="background:#f1f5f9;padding:0 5px;border-radius:3px;">MAIL_SERVER</code>, <code style="background:#f1f5f9;padding:0 5px;border-radius:3px;">MAIL_USERNAME</code>, <code style="background:#f1f5f9;padding:0 5px;border-radius:3px;">MAIL_PASSWORD</code> in your <code style="background:#f1f5f9;padding:0 5px;border-radius:3px;">.env</code> file.
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+    {% if not mail_cfg.configured %}
+    <a href="#setup-guide" style="font-size:12px;color:#7c3aed;font-weight:600;text-decoration:none;">Setup guide ↓</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Summary tiles -->
+<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+  <div class="card" style="padding:12px 18px;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:22px;font-weight:800;color:#0f172a;">{{ summary.total }}</span>
+    <span style="font-size:12px;color:#64748b;">Total logged</span>
+  </div>
+  <div class="card" style="padding:12px 18px;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:22px;font-weight:800;color:#3b82f6;">{{ summary['in'] }}</span>
+    <span style="font-size:12px;color:#64748b;">Inbound</span>
+  </div>
+  <div class="card" style="padding:12px 18px;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:22px;font-weight:800;color:#7c3aed;">{{ summary.out }}</span>
+    <span style="font-size:12px;color:#64748b;">Outbound</span>
+  </div>
+  <div class="card" style="padding:12px 18px;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:22px;font-weight:800;color:#ef4444;">{{ summary.failed }}</span>
+    <span style="font-size:12px;color:#64748b;">Failed</span>
+  </div>
+  <div class="card" style="padding:12px 18px;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:22px;font-weight:800;color:#f59e0b;">{{ summary.skipped }}</span>
+    <span style="font-size:12px;color:#64748b;">Skipped / Deduped</span>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+  <a href="{{ url_for('helpdesk.email_inbox') }}" class="btn btn-secondary" style="font-size:12px;padding:5px 12px;{% if not direction and not status_f %}background:#7c3aed;color:#fff;border-color:#7c3aed;{% endif %}">All</a>
+  <a href="{{ url_for('helpdesk.email_inbox', dir='in') }}" class="btn btn-secondary" style="font-size:12px;padding:5px 12px;{% if direction=='in' %}background:#3b82f6;color:#fff;border-color:#3b82f6;{% endif %}">📥 Inbound</a>
+  <a href="{{ url_for('helpdesk.email_inbox', dir='out') }}" class="btn btn-secondary" style="font-size:12px;padding:5px 12px;{% if direction=='out' %}background:#7c3aed;color:#fff;border-color:#7c3aed;{% endif %}">📤 Outbound</a>
+  <span style="color:#e2e8f0;">|</span>
+  <a href="{{ url_for('helpdesk.email_inbox', status='failed') }}" class="btn btn-secondary" style="font-size:12px;padding:5px 12px;{% if status_f=='failed' %}background:#ef4444;color:#fff;border-color:#ef4444;{% endif %}">❌ Failed</a>
+  <a href="{{ url_for('helpdesk.email_inbox', status='skipped') }}" class="btn btn-secondary" style="font-size:12px;padding:5px 12px;{% if status_f=='skipped' %}background:#f59e0b;color:#fff;border-color:#f59e0b;{% endif %}">⏭ Skipped</a>
+  <span style="margin-left:auto;font-size:12px;color:#64748b;">{{ total }} entries · page {{ page }}/{{ pages }}</span>
+</div>
+
+<!-- Log table -->
+{% if logs %}
+<div class="card" style="padding:0;overflow:hidden;">
+  <table class="table" style="margin:0;">
+    <thead>
+      <tr>
+        <th style="width:90px;">Direction</th>
+        <th style="width:70px;">Status</th>
+        <th>From / To</th>
+        <th>Subject</th>
+        <th style="width:100px;">Ticket</th>
+        <th style="width:130px;">Time</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td>
+          {% if log.direction == 'in' %}
+          <span style="font-size:11px;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:6px;font-weight:600;">📥 In</span>
+          {% else %}
+          <span style="font-size:11px;background:#ede9fe;color:#7c3aed;padding:2px 8px;border-radius:6px;font-weight:600;">📤 Out</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if log.status == 'ok' %}
+          <span style="font-size:11px;color:#16a34a;font-weight:600;">✓ OK</span>
+          {% elif log.status == 'failed' %}
+          <span style="font-size:11px;color:#dc2626;font-weight:600;">✕ Failed</span>
+          {% else %}
+          <span style="font-size:11px;color:#f59e0b;font-weight:600;">⏭ Skip</span>
+          {% endif %}
+        </td>
+        <td style="font-size:12px;color:#334155;max-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          {% if log.direction == 'in' %}{{ log.from_addr or '—' }}{% else %}{{ log.to_addr or '—' }}{% endif %}
+        </td>
+        <td style="font-size:12px;color:#334155;max-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          {{ log.subject or '(no subject)' }}
+          {% if log.error %}
+          <span title="{{ log.error }}" style="font-size:11px;color:#dc2626;margin-left:6px;cursor:help;">⚠ {{ log.error[:50] }}{% if log.error|length > 50 %}…{% endif %}</span>
+          {% endif %}
+        </td>
+        <td style="font-size:12px;">
+          {% if log.ticket_id %}
+          <a href="{{ url_for('helpdesk.ticket_detail', number=log.ticket.number) if log.ticket else '#' }}"
+             style="color:#7c3aed;font-weight:600;text-decoration:none;">
+            {{ log.ticket.number if log.ticket else '#' + log.ticket_id|string }}
+          </a>
+          {% else %}
+          <span style="color:#94a3b8;">—</span>
+          {% endif %}
+        </td>
+        <td style="font-size:11px;color:#94a3b8;white-space:nowrap;">
+          {{ log.created_at | localtime('%d %b %H:%M') }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+{% if pages > 1 %}
+<div style="display:flex;justify-content:center;gap:6px;margin-top:16px;">
+  {% if page > 1 %}
+  <a href="{{ url_for('helpdesk.email_inbox', page=page-1, dir=direction, status=status_f) }}" class="btn btn-secondary" style="font-size:12px;padding:5px 12px;">← Prev</a>
+  {% endif %}
+  <span style="padding:6px 12px;font-size:12px;color:#64748b;">{{ page }} / {{ pages }}</span>
+  {% if page < pages %}
+  <a href="{{ url_for('helpdesk.email_inbox', page=page+1, dir=direction, status=status_f) }}" class="btn btn-secondary" style="font-size:12px;padding:5px 12px;">Next →</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div style="text-align:center;padding:60px 0;">
+  <div style="font-size:48px;margin-bottom:16px;">📭</div>
+  <h3 style="color:#0f172a;font-size:18px;margin-bottom:8px;">No email logs yet</h3>
+  <p style="color:#64748b;font-size:13px;">
+    {% if mail_cfg.configured %}Emails will appear here once the inbox is polled.{% else %}Configure your IMAP settings to start ingesting emails.{% endif %}
+  </p>
+</div>
+{% endif %}
+
+<!-- Setup Guide (shown when not configured) -->
+{% if not mail_cfg.configured %}
+<div id="setup-guide" class="card" style="margin-top:24px;padding:20px 24px;">
+
+  {% if mail_cfg.provider == 'graph' %}
+  <h3 style="font-size:15px;font-weight:700;color:#0f172a;margin:0 0 4px;">
+    <span style="background:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:8px;font-size:12px;margin-right:8px;">Microsoft 365</span>
+    Graph API Setup Guide
+  </h3>
+  <p style="font-size:13px;color:#64748b;margin:0 0 14px;">Office 365 / Outlook via Azure App Registration (application permissions — no user sign-in needed).</p>
+  <ol style="font-size:13px;color:#334155;line-height:2.2;margin:0 0 14px;padding-left:20px;">
+    <li>In <strong>Azure Portal → Azure Active Directory → App registrations</strong>, click <strong>New registration</strong>.</li>
+    <li>Under <strong>API permissions → Add → Microsoft Graph → Application permissions</strong>, add <code style="background:#f1f5f9;padding:0 5px;border-radius:3px;">Mail.Send</code> and <code style="background:#f1f5f9;padding:0 5px;border-radius:3px;">Mail.ReadWrite</code>, then <strong>Grant admin consent</strong>.</li>
+    <li>Under <strong>Certificates &amp; secrets → New client secret</strong>, copy the <em>Value</em> (not the ID).</li>
+    <li>Add these to your <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;">.env</code>:</li>
+  </ol>
+  <pre style="background:#0f172a;color:#e2e8f0;padding:14px 18px;border-radius:8px;font-size:12px;overflow-x:auto;line-height:1.8;">MAIL_PROVIDER=graph
+MAIL_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+MAIL_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+MAIL_CLIENT_SECRET=your-secret-value-here
+MAIL_MAILBOX=helpdesk@yourcompany.com
+MAIL_FROM=iMocha Helpdesk &lt;helpdesk@yourcompany.com&gt;
+MAIL_AUTO_REPLY=1
+MAIL_POLL_INTERVAL=60</pre>
+  <p style="font-size:12px;color:#64748b;margin:12px 0 0;">Restart the server after saving. The Graph inbox poller runs automatically every <code style="background:#f1f5f9;padding:0 4px;border-radius:3px;">MAIL_POLL_INTERVAL</code> seconds. <strong>MAIL_MAILBOX</strong> must be the shared mailbox or user mailbox the app has been granted access to.</p>
+
+  {% else %}
+  <h3 style="font-size:15px;font-weight:700;color:#0f172a;margin:0 0 12px;">Gmail / IMAP Setup Guide</h3>
+  <ol style="font-size:13px;color:#334155;line-height:2;margin:0;padding-left:20px;">
+    <li>Enable <strong>2-Step Verification</strong> on your Google account.</li>
+    <li>Go to <strong>Google Account → Security → App Passwords</strong> and create an app password for "Mail".</li>
+    <li>Add these to your <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;">.env</code> file:</li>
+  </ol>
+  <pre style="background:#0f172a;color:#e2e8f0;padding:14px 18px;border-radius:8px;font-size:12px;overflow-x:auto;margin-top:12px;line-height:1.8;">MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=support@yourcompany.com
+MAIL_PASSWORD=xxxx-xxxx-xxxx-xxxx
+MAIL_FROM=iMocha Helpdesk &lt;support@yourcompany.com&gt;
+MAIL_USE_TLS=1
+
+MAIL_IMAP_SERVER=imap.gmail.com
+MAIL_IMAP_PORT=993
+MAIL_AUTO_REPLY=1
+MAIL_POLL_INTERVAL=60</pre>
+  <p style="font-size:12px;color:#64748b;margin:12px 0 0;">Restart the server after saving. The IMAP poller runs automatically every <code style="background:#f1f5f9;padding:0 4px;border-radius:3px;">MAIL_POLL_INTERVAL</code> seconds.</p>
+  {% endif %}
+
+</div>
+{% endif %}
+
+<!-- Test Email Modal -->
+<div class="modal-overlay" id="test-email-modal">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Send Test Email</h3>
+      <button class="modal-close btn-modal-close" data-modal="test-email-modal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form method="POST" action="{{ url_for('helpdesk.email_test') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;">
+        <p style="font-size:13px;color:#64748b;margin:0;">
+          {% if mail_cfg.provider == 'graph' %}
+            Sends a test email via Microsoft Graph API to verify the connection works.
+            {% if not mail_cfg.mailbox %}<strong style="color:#dc2626;">MAIL_MAILBOX is not set.</strong>{% endif %}
+          {% else %}
+            Sends a test email via your configured SMTP to verify the connection works.
+            {% if not mail_cfg.smtp_server %}<strong style="color:#dc2626;">MAIL_SERVER is not set.</strong>{% endif %}
+          {% endif %}
+        </p>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Recipient email <span style="color:#ef4444">*</span></label>
+          <input type="email" name="to" class="form-control" placeholder="you@example.com" required value="{{ mail_cfg.mailbox if mail_cfg.provider == 'graph' else mail_cfg.username }}">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-modal-close" data-modal="test-email-modal">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="background:#7c3aed;border-color:#7c3aed;">Send Test</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ g.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.getElementById('btn-test-email');
+  if (btn) btn.addEventListener('click', function() { openModal('test-email-modal'); });
+  document.querySelectorAll('.btn-modal-close').forEach(function(b) {
+    b.addEventListener('click', function(e) { e.stopPropagation(); closeModal(b.dataset.modal); });
+  });
+});
+</script>
+{% endblock %}

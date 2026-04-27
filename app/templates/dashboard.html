@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+.dash-kpi {
+  display: block;
+  text-decoration: none;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  transition: box-shadow 0.15s;
+}
+.dash-kpi:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+.dash-kpi-label { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+.dash-kpi-value { font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1; margin-bottom: 5px; }
+.dash-kpi-sub { font-size: 11px; color: #94a3b8; }
+</style>
+{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle">Welcome back, {{ session.get('user', {}).get('name', 'User').split()[0] }} — {{ now().strftime('%B %d, %Y') if now else '' }}</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('assets.add') }}" class="btn btn-primary">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Asset
+    </a>
+  </div>
+</div>
+
+<!-- KPI Row 1 — inventory status -->
+<div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 12px;">
+
+  <a href="{{ url_for('assets.list') }}" class="dash-kpi" style="border-left-color: #64748b;">
+    <div class="dash-kpi-label">Total Assets</div>
+    <div class="dash-kpi-value">{{ stats.total }}</div>
+    <div class="dash-kpi-sub">All inventory</div>
+  </a>
+
+  <a href="{{ url_for('assets.list') }}?status=deployed" class="dash-kpi" style="border-left-color: #3b82f6;">
+    <div class="dash-kpi-label" style="color: #3b82f6;">Deployed</div>
+    <div class="dash-kpi-value" style="color: #1d4ed8;">{{ stats.deployed }}</div>
+    <div class="dash-kpi-sub">Currently assigned</div>
+  </a>
+
+  <a href="{{ url_for('assets.list') }}?status=instock" class="dash-kpi" style="border-left-color: #10b981;">
+    <div class="dash-kpi-label" style="color: #10b981;">In Stock</div>
+    <div class="dash-kpi-value" style="color: #059669;">{{ stats.instock }}</div>
+    <div class="dash-kpi-sub">Ready to deploy</div>
+  </a>
+
+  <a href="{{ url_for('issues.list') }}" class="dash-kpi" style="border-left-color: {% if open_issues > 0 %}#ef4444{% else %}#e2e8f0{% endif %}; {% if open_issues > 0 %}background: #fef2f2;{% endif %}">
+    <div class="dash-kpi-label" style="color: {% if open_issues > 0 %}#dc2626{% else %}#94a3b8{% endif %};">Open Issues</div>
+    <div class="dash-kpi-value" style="color: {% if open_issues > 0 %}#dc2626{% else %}#0f172a{% endif %};">{{ open_issues }}</div>
+    <div class="dash-kpi-sub">Needs attention</div>
+  </a>
+
+  <a href="{{ url_for('assets.list') }}?warranty=expiring" class="dash-kpi" style="border-left-color: {% if warranty_stats.expiring > 0 %}#f59e0b{% else %}#e2e8f0{% endif %}; {% if warranty_stats.expiring > 0 %}background: #fffbeb;{% endif %}">
+    <div class="dash-kpi-label" style="color: {% if warranty_stats.expiring > 0 %}#d97706{% else %}#94a3b8{% endif %};">Warranty Expiring</div>
+    <div class="dash-kpi-value" style="color: {% if warranty_stats.expiring > 0 %}#d97706{% else %}#0f172a{% endif %};">{{ warranty_stats.expiring }}</div>
+    <div class="dash-kpi-sub">Within 60 days</div>
+  </a>
+
+  <a href="{{ url_for('assets.list') }}?status=repair" class="dash-kpi" style="border-left-color: {% if stats.repair > 0 %}#f59e0b{% else %}#e2e8f0{% endif %}; {% if stats.repair > 0 %}background: #fff7ed;{% endif %}">
+    <div class="dash-kpi-label" style="color: {% if stats.repair > 0 %}#ea580c{% else %}#94a3b8{% endif %};">In Repair</div>
+    <div class="dash-kpi-value" style="color: {% if stats.repair > 0 %}#ea580c{% else %}#0f172a{% endif %};">{{ stats.repair }}</div>
+    <div class="dash-kpi-sub">Under maintenance</div>
+  </a>
+
+</div>
+
+<!-- KPI Row 2 — financials -->
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;">
+
+  <div class="dash-kpi" style="border-left-color: #7c3aed;">
+    <div class="dash-kpi-label" style="color: #7c3aed;">Portfolio Value</div>
+    <div class="dash-kpi-value" style="font-size: 22px;">₹{{ '{:,.0f}'.format(cost_stats.total_portfolio) }}</div>
+    <div class="dash-kpi-sub">Total asset cost</div>
+  </div>
+
+  <div class="dash-kpi" style="border-left-color: #64748b;">
+    <div class="dash-kpi-label">Avg Asset Cost</div>
+    <div class="dash-kpi-value" style="font-size: 22px;">₹{{ '{:,.0f}'.format(cost_stats.avg_cost) }}</div>
+    <div class="dash-kpi-sub">Per unit</div>
+  </div>
+
+  <div class="dash-kpi" style="border-left-color: {% if cost_stats.repair_spend > 0 %}#ef4444{% else %}#e2e8f0{% endif %};">
+    <div class="dash-kpi-label" style="color: {% if cost_stats.repair_spend > 0 %}#dc2626{% else %}#94a3b8{% endif %};">Repair Spend</div>
+    <div class="dash-kpi-value" style="font-size: 22px; color: {% if cost_stats.repair_spend > 0 %}#dc2626{% else %}#0f172a{% endif %};">₹{{ '{:,.0f}'.format(cost_stats.repair_spend) }}</div>
+    <div class="dash-kpi-sub">Total repair costs</div>
+  </div>
+
+</div>
+
+<!-- Charts + Warranty -->
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+
+  <!-- Status donut -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Asset Status</h3>
+    </div>
+    <div style="position: relative; height: 200px; display: flex; align-items: center; justify-content: center; margin-bottom: 4px;">
+      <canvas id="statusChart"></canvas>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 0 4px 4px;">
+      {% for status, count in status_breakdown.items() %}{% if count > 0 %}
+      <span class="badge badge-status-{{ status }}" style="padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500;">{{ status.title() }}: {{ count }}</span>
+      {% endif %}{% endfor %}
+    </div>
+  </div>
+
+  <!-- Model bar chart -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">In-Stock by Model</h3>
+      <a href="{{ url_for('dashboard.stock') }}" style="font-size: 12px; color: #3b82f6; text-decoration: none; font-weight: 500;">Full view →</a>
+    </div>
+    {% if model_breakdown %}
+    <div style="position: relative; height: 220px;">
+      <canvas id="modelChart"></canvas>
+    </div>
+    {% else %}
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 220px; color: #94a3b8; font-size: 13px; gap: 8px;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#e2e8f0" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      No in-stock assets
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Warranty overview -->
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Warranty</h3></div>
+    <div style="display: flex; flex-direction: column; gap: 10px; padding: 4px 0;">
+
+      <a href="{{ url_for('assets.list') }}?warranty=active" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; transition: background 0.15s;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 28px; height: 28px; border-radius: 7px; background: #dcfce7; display: flex; align-items: center; justify-content: center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <span style="font-size: 13px; font-weight: 500; color: #065f46;">Active</span>
+        </div>
+        <span style="font-size: 18px; font-weight: 700; color: #065f46;">{{ warranty_stats.active }}</span>
+      </a>
+
+      <a href="{{ url_for('assets.list') }}?warranty=expiring" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; transition: background 0.15s;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 28px; height: 28px; border-radius: 7px; background: #fef3c7; display: flex; align-items: center; justify-content: center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <span style="font-size: 13px; font-weight: 500; color: #92400e;">Expiring &lt;60 days</span>
+        </div>
+        <span style="font-size: 18px; font-weight: 700; color: #92400e;">{{ warranty_stats.expiring }}</span>
+      </a>
+
+      <a href="{{ url_for('assets.list') }}?warranty=expired" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; transition: background 0.15s;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 28px; height: 28px; border-radius: 7px; background: #fee2e2; display: flex; align-items: center; justify-content: center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#991b1b" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <span style="font-size: 13px; font-weight: 500; color: #991b1b;">Expired</span>
+        </div>
+        <span style="font-size: 18px; font-weight: 700; color: #991b1b;">{{ warranty_stats.expired }}</span>
+      </a>
+
+      {% if overdue_maintenance > 0 %}
+      <a href="{{ url_for('maintenance.list') }}" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; transition: background 0.15s;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 28px; height: 28px; border-radius: 7px; background: #ffedd5; display: flex; align-items: center; justify-content: center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          </div>
+          <span style="font-size: 13px; font-weight: 500; color: #c2410c;">Overdue Maintenance</span>
+        </div>
+        <span style="font-size: 18px; font-weight: 700; color: #c2410c;">{{ overdue_maintenance }}</span>
+      </a>
+      {% endif %}
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Quick Actions + Stock Intelligence -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Quick Actions</h3></div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+
+      <a href="{{ url_for('assets.add') }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 1px solid #e2e8f0; border-radius: 9px; text-decoration: none; transition: background 0.15s, border-color 0.15s;" class="quick-action">
+        <div style="width: 32px; height: 32px; border-radius: 8px; background: #eff6ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+        <div>
+          <div style="font-size: 13px; font-weight: 600; color: #0f172a;">Add New Asset</div>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 1px;">Register hardware or software</div>
+        </div>
+        <svg style="margin-left: auto; flex-shrink: 0;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+
+      <a href="{{ url_for('assignments.workspace') }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 1px solid #e2e8f0; border-radius: 9px; text-decoration: none; transition: background 0.15s, border-color 0.15s;" class="quick-action">
+        <div style="width: 32px; height: 32px; border-radius: 8px; background: #f0fdf4; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div>
+          <div style="font-size: 13px; font-weight: 600; color: #0f172a;">Manage Assignments</div>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 1px;">Assign or return assets</div>
+        </div>
+        <svg style="margin-left: auto; flex-shrink: 0;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+
+      <a href="{{ url_for('assets.bulk_upload') }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 1px solid #e2e8f0; border-radius: 9px; text-decoration: none; transition: background 0.15s, border-color 0.15s;" class="quick-action">
+        <div style="width: 32px; height: 32px; border-radius: 8px; background: #faf5ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+        </div>
+        <div>
+          <div style="font-size: 13px; font-weight: 600; color: #0f172a;">Bulk Upload CSV</div>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 1px;">Import multiple assets at once</div>
+        </div>
+        <svg style="margin-left: auto; flex-shrink: 0;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+
+      <a href="{{ url_for('reports.index') }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 1px solid #e2e8f0; border-radius: 9px; text-decoration: none; transition: background 0.15s, border-color 0.15s;" class="quick-action">
+        <div style="width: 32px; height: 32px; border-radius: 8px; background: #fff7ed; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div>
+          <div style="font-size: 13px; font-weight: 600; color: #0f172a;">Export Reports</div>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 1px;">Download CSV or Excel</div>
+        </div>
+        <svg style="margin-left: auto; flex-shrink: 0;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- Stock Intelligence card -->
+  <div class="card" style="display: flex; flex-direction: column;">
+    <div class="card-header">
+      <h3 class="card-title">Stock Intelligence</h3>
+      <a href="{{ url_for('dashboard.stock') }}" style="font-size: 12px; color: #3b82f6; text-decoration: none; font-weight: 500;">View all →</a>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
+      <!-- Summary metrics -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 4px;">
+        <div style="text-align: center; padding: 12px 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9;">
+          <div style="font-size: 20px; font-weight: 700; color: #0f172a;">{{ stats.instock }}</div>
+          <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px;">In Stock</div>
+        </div>
+        <div style="text-align: center; padding: 12px 8px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0;">
+          <div style="font-size: 20px; font-weight: 700; color: #15803d;">{{ working_count }}</div>
+          <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px;">Working</div>
+        </div>
+        <div style="text-align: center; padding: 12px 8px; background: {% if instock_with_issues > 0 %}#fef2f2{% else %}#f8fafc{% endif %}; border-radius: 8px; border: 1px solid {% if instock_with_issues > 0 %}#fecaca{% else %}#f1f5f9{% endif %};">
+          <div style="font-size: 20px; font-weight: 700; color: {% if instock_with_issues > 0 %}#dc2626{% else %}#94a3b8{% endif %};">{{ instock_with_issues }}</div>
+          <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px;">Has Issues</div>
+        </div>
+      </div>
+
+      <!-- Model bar chart preview -->
+      {% if model_breakdown %}
+      {% set top_models = model_breakdown[:5] %}
+      <div style="display: flex; flex-direction: column; gap: 7px; padding: 4px 0;">
+        {% set max_val = top_models[0].total if top_models else 1 %}
+        {% for m in top_models %}
+        <div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+            <span style="font-size: 12px; color: #475569; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;">{{ m.model }}</span>
+            <span style="font-size: 12px; color: #64748b; font-weight: 600; flex-shrink: 0; margin-left: 8px;">{{ m.total }}</span>
+          </div>
+          <div style="height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; display: flex;">
+            <div style="height: 100%; width: {{ [m.working / max_val * 100, 100]|min|int }}%; background: #10b981; transition: width 0.4s;"></div>
+            <div style="height: 100%; width: {{ [m.not_working / max_val * 100, 100]|min|int }}%; background: #ef4444; transition: width 0.4s;"></div>
+          </div>
+        </div>
+        {% endfor %}
+        {% if model_breakdown|length > 5 %}
+        <div style="font-size: 11px; color: #94a3b8; text-align: center; padding-top: 2px;">+{{ model_breakdown|length - 5 }} more models</div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <a href="{{ url_for('dashboard.stock') }}" class="btn btn-primary" style="margin-top: auto; justify-content: center; width: 100%;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Open Stock Intelligence
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<script nonce="{{ g.csp_nonce }}">
+(function(){
+  const statusData = {{ status_breakdown | tojson }};
+  const labels = Object.keys(statusData).filter(k => statusData[k] > 0);
+  const values = labels.map(k => statusData[k]);
+  const colorMap = {
+    instock: '#10b981', deployed: '#3b82f6', repair: '#f59e0b',
+    sold: '#94a3b8', retired: '#cbd5e1', ordered: '#8b5cf6', received: '#06b6d4'
+  };
+  const colors = labels.map(l => colorMap[l] || '#94a3b8');
+
+  const ctx1 = document.getElementById('statusChart');
+  if (ctx1) {
+    new Chart(ctx1, {
+      type: 'doughnut',
+      data: {
+        labels: labels.map(l => l.charAt(0).toUpperCase() + l.slice(1)),
+        datasets: [{
+          data: values, backgroundColor: colors,
+          borderWidth: 3, borderColor: '#fff', hoverOffset: 5
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: {
+          callbacks: { label: function(c) { return ' ' + c.label + ': ' + c.raw; } }
+        }},
+        cutout: '68%'
+      }
+    });
+  }
+
+  const models = {{ model_breakdown | tojson }};
+  const ctx2 = document.getElementById('modelChart');
+  if (ctx2 && models.length > 0) {
+    new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: models.map(m => m.model.length > 16 ? m.model.substring(0,14) + '…' : m.model),
+        datasets: [
+          { label: 'Working',     data: models.map(m => m.working),     backgroundColor: '#10b981', borderRadius: 3, borderSkipped: false, stack: 'stock' },
+          { label: 'Has Issues',  data: models.map(m => m.not_working), backgroundColor: '#f97316', borderRadius: 3, borderSkipped: false, stack: 'stock' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 11 }, color: '#64748b' } },
+          tooltip: { mode: 'index', intersect: false }
+        },
+        scales: {
+          y: { beginAtZero: true, stacked: true, ticks: { stepSize: 1, color: '#94a3b8', font: { size: 10 } }, grid: { color: '#f1f5f9' }, border: { display: false } },
+          x: { stacked: true, grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+        }
+      }
+    });
+  }
+
+  // Quick action hover
+  document.querySelectorAll('.quick-action').forEach(function(el) {
+    el.addEventListener('mouseenter', function() {
+      el.style.background = '#f8fafc';
+      el.style.borderColor = '#cbd5e1';
+    });
+    el.addEventListener('mouseleave', function() {
+      el.style.background = '';
+      el.style.borderColor = '#e2e8f0';
+    });
+  });
+})();
+</script>
+
+{% endblock %}

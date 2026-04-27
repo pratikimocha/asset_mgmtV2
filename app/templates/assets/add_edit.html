@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit ' + asset.serial_number if asset else 'Add Asset' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ 'Edit Asset' if asset else 'Add New Asset' }}</h1>
+    <p class="page-subtitle">{{ asset.serial_number if asset else 'Enter asset details below' }}</p>
+  </div>
+  <a href="{{ url_for('assets.list') }}" class="btn btn-secondary">← Back to List</a>
+</div>
+
+<div class="card" style="max-width: 800px;">
+  <form method="post" action="{{ url_for('assets.edit', asset_id=asset.id) if asset else url_for('assets.add') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <h3 style="font-size: 14px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px;">Identification</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div class="form-group">
+        <label class="form-label">Serial Number <span style="color: #ef4444;">*</span></label>
+        <input type="text" name="serial_number" class="form-control" value="{{ asset.serial_number if asset else '' }}" required placeholder="e.g. SN-2024-001">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Asset Tag</label>
+        <input type="text" name="asset_tag" class="form-control" value="{{ asset.asset_tag or '' if asset else '' }}" placeholder="e.g. IT-0042">
+      </div>
+    </div>
+
+    <h3 style="font-size: 14px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin: 20px 0 16px;">Device Info</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div class="form-group">
+        <label class="form-label">Model <span style="color: #ef4444;">*</span></label>
+        <input type="text" name="model" class="form-control" value="{{ asset.model if asset else '' }}" required placeholder="e.g. MacBook Pro 14">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Manufacturer</label>
+        <input type="text" name="manufacturer" class="form-control" value="{{ asset.manufacturer if asset else '' }}" placeholder="e.g. Apple">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <input type="text" name="category" class="form-control" list="category-list" value="{{ asset.category if asset else '' }}" placeholder="e.g. Laptop">
+        <datalist id="category-list">
+          {% for cat in categories %}<option value="{{ cat }}">{% endfor %}
+          <option value="Laptop"><option value="Desktop"><option value="Mobile"><option value="Monitor"><option value="Printer"><option value="Peripheral">
+        </datalist>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select name="status" class="form-control">
+          {% for s in valid_statuses %}
+          <option value="{{ s }}" {% if (asset and asset.status == s) or (not asset and s == 'instock') %}selected{% endif %}>{{ s.title() }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <h3 style="font-size: 14px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin: 20px 0 16px;">Purchase &amp; Warranty</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+      <div class="form-group">
+        <label class="form-label">Purchase Date</label>
+        <input type="date" name="purchase_date" class="form-control" value="{{ asset.purchase_date.strftime('%Y-%m-%d') if asset and asset.purchase_date else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Warranty Expiry</label>
+        <input type="date" name="warranty_expiry" class="form-control" value="{{ asset.warranty_expiry.strftime('%Y-%m-%d') if asset and asset.warranty_expiry else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cost (₹)</label>
+        <input type="number" name="cost" class="form-control" value="{{ asset.cost if asset and asset.cost else '' }}" step="0.01" min="0" placeholder="0.00">
+      </div>
+    </div>
+
+    <h3 style="font-size: 14px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin: 20px 0 16px;">Location &amp; Vendor</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+      <div class="form-group">
+        <label class="form-label">Vendor</label>
+        <input type="text" name="vendor" class="form-control" value="{{ asset.vendor or '' if asset else '' }}" placeholder="e.g. Dell India">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Location</label>
+        <input type="text" name="location" class="form-control" value="{{ asset.location or '' if asset else '' }}" placeholder="e.g. Mumbai Office">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Department</label>
+        <input type="text" name="department" class="form-control" value="{{ asset.department or '' if asset else '' }}" placeholder="e.g. Engineering">
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 12px; margin-top: 8px;">
+      <button type="submit" class="btn btn-primary">{{ 'Update Asset' if asset else 'Save Asset' }}</button>
+      <a href="{{ url_for('assets.detail', asset_id=asset.id) if asset else url_for('assets.list') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

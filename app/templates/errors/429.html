@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}429 — Too Many Requests{% endblock %}
+{% block content %}
+<div class="empty-state" style="padding: 80px 0; text-align: center;">
+  <div style="font-size: 64px; margin-bottom: 16px;">⏳</div>
+  <h2 style="font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 8px;">429 — Too Many Requests</h2>
+  <p style="color: #64748b; margin-bottom: 24px;">You've made too many requests in a short period. Please wait a moment and try again.</p>
+  <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">Go to Dashboard</a>
+</div>
+{% endblock %}

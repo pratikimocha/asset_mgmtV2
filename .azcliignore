@@ -1,0 +1,56 @@
+# Files excluded from Azure deployments (az webapp up)
+# Syntax: same as .gitignore
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Local environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.vscode
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+/logs/
+
+# Database (local SQLite, migrations temp)
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads (PO files)
+# Keep only in production via Azure storage
+app/uploads/
+
+# Temporary files
+*.bak
+*.tmp
+*.swp
+*~
+
+# Migration artifacts
+instance/
+
+# Development scripts
+scripts/
+
+# Testing
+.coverage
+htmlcov/

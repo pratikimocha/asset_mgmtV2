@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Reports & Exports</h1>
+    <p class="page-subtitle">Export asset data to CSV or Excel</p>
+  </div>
+</div>
+
+<div class="grid-2col">
+  <!-- Quick Exports -->
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Quick Exports</h3></div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <a href="{{ url_for('assets.export') }}?format=csv" class="btn btn-secondary" style="justify-content: space-between;">
+        <span>All Assets (CSV)</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </a>
+      <a href="{{ url_for('assets.export') }}?format=xlsx" class="btn btn-secondary" style="justify-content: space-between;">
+        <span>All Assets (XLSX)</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </a>
+      <a href="{{ url_for('assets.export') }}?format=csv&status=instock" class="btn btn-secondary" style="justify-content: space-between;">
+        <span>In-Stock Assets (CSV)</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </a>
+      <a href="{{ url_for('assets.export') }}?format=csv&status=deployed" class="btn btn-secondary" style="justify-content: space-between;">
+        <span>Deployed Assets (CSV)</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </a>
+      <a href="{{ url_for('assets.export') }}?format=csv&status=sold" class="btn btn-secondary" style="justify-content: space-between;">
+        <span>Sold Assets (CSV)</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <!-- Custom Report Builder -->
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Custom Report</h3></div>
+    <form action="{{ url_for('assets.export') }}" method="get">
+      <div class="form-group">
+        <label class="form-label">Status Filter</label>
+        <select name="status" class="form-control">
+          <option value="">All Statuses</option>
+          <option value="instock">In Stock</option>
+          <option value="deployed">Deployed</option>
+          <option value="repair">In Repair</option>
+          <option value="sold">Sold</option>
+          <option value="retired">Retired</option>
+          <option value="ordered">Ordered</option>
+          <option value="received">Received</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Warranty</label>
+        <select name="warranty" class="form-control">
+          <option value="">All</option>
+          <option value="active">Active</option>
+          <option value="expiring">Expiring Soon</option>
+          <option value="expired">Expired</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 16px;">
+        <button type="submit" name="format" value="csv" class="btn btn-primary" style="flex: 1;">Download CSV</button>
+        <button type="submit" name="format" value="xlsx" class="btn btn-secondary" style="flex: 1;">Download XLSX</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

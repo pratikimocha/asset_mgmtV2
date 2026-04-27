@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Bulk Upload{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Bulk Upload Assets</h1>
+    <p class="page-subtitle">Import multiple assets from a CSV file</p>
+  </div>
+  <a href="{{ url_for('assets.list') }}" class="btn btn-secondary">← Back to Assets</a>
+</div>
+
+<div style="max-width: 700px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Upload CSV File</h3></div>
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('assets.bulk_upload') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div id="drop-zone" style="border: 2px dashed #cbd5e1; border-radius: 12px; padding: 48px; text-align: center; margin-bottom: 20px; cursor: pointer; transition: border-color 0.2s, background 0.2s;">
+        <div style="font-size: 40px; margin-bottom: 12px;">📂</div>
+        <div style="font-weight: 600; color: #0f172a; margin-bottom: 4px;">Drop your CSV file here</div>
+        <div style="font-size: 13px; color: #64748b;">or click to browse</div>
+        <input type="file" id="csvfile" name="csvfile" accept=".csv" style="display: none;">
+        <div id="file-name" style="margin-top: 12px; font-size: 13px; color: #3b82f6; font-weight: 500;"></div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%;">Upload &amp; Import</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">CSV Format</h3></div>
+    <p style="font-size: 14px; color: #64748b; margin-bottom: 12px;">Your CSV file must have these column headers (first row):</p>
+    <div style="background: #f8fafc; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; color: #0f172a; overflow-x: auto;">
+      serial_number,model,manufacturer,status,assigned_to,asset_tag,category,purchase_date,warranty_expiry,cost,vendor,location,department,assigned_date,issue_text,issue_severity,lifecycle_event,lifecycle_event_type,lifecycle_event_date
+    </div>
+    <div style="margin-top: 16px;">
+      <table class="table" style="font-size: 13px;">
+        <thead><tr><th>Column</th><th>Required</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr style="background:#fefce8;"><td><strong>serial_number</strong></td><td><span style="color:#16a34a;font-weight:700;">Always</span></td><td>Unique identifier per asset</td></tr>
+          <tr style="background:#fefce8;"><td><strong>model</strong></td><td><span style="color:#16a34a;font-weight:700;">Always</span></td><td>Device model name (e.g. MacBook Pro 14)</td></tr>
+          <tr style="background:#fefce8;"><td><strong>manufacturer</strong></td><td><span style="color:#16a34a;font-weight:700;">Always</span></td><td>Brand (e.g. Apple, Dell, HP)</td></tr>
+          <tr style="background:#fefce8;"><td><strong>status</strong></td><td><span style="color:#16a34a;font-weight:700;">Always</span></td><td>instock / deployed / repair / sold / retired / ordered / received</td></tr>
+          <tr style="background:#fef2f2;"><td><strong>assigned_to</strong></td><td><span style="color:#dc2626;font-weight:700;">If deployed</span></td><td>Employee name — required when status is <code>deployed</code></td></tr>
+          <tr><td>asset_tag</td><td>—</td><td>Internal tag (e.g. IT-0042)</td></tr>
+          <tr><td>category</td><td>—</td><td>e.g. Laptop, Mobile, Monitor</td></tr>
+          <tr><td>purchase_date</td><td>—</td><td>YYYY-MM-DD</td></tr>
+          <tr><td>warranty_expiry</td><td>—</td><td>YYYY-MM-DD</td></tr>
+          <tr><td>cost</td><td>—</td><td>Number (e.g. 75000)</td></tr>
+          <tr><td>vendor</td><td>—</td><td>Supplier name</td></tr>
+          <tr><td>location</td><td>—</td><td>Office / branch</td></tr>
+          <tr><td>department</td><td>—</td><td>Team name</td></tr>
+          <tr><td>assigned_date</td><td>—</td><td>YYYY-MM-DD (defaults to today)</td></tr>
+          <tr><td>issue_text</td><td>—</td><td>Issue description (auto-creates an open issue)</td></tr>
+          <tr><td>issue_severity</td><td>—</td><td>low / medium / high (defaults to medium)</td></tr>
+          <tr style="background:#f0fdf4;"><td><strong>lifecycle_event</strong></td><td>—</td><td>Text note shown in the asset's Lifecycle tab (e.g. "Repaired screen", "Assigned to IT dept")</td></tr>
+          <tr style="background:#f0fdf4;"><td>lifecycle_event_type</td><td>—</td><td>Event type label (e.g. repair, assignment, note, purchase). Defaults to <code>note</code></td></tr>
+          <tr style="background:#f0fdf4;"><td>lifecycle_event_date</td><td>—</td><td>YYYY-MM-DD — when the event happened. Defaults to purchase_date or today</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script nonce="{{ g.csp_nonce }}">
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('csvfile');
+const fileName = document.getElementById('file-name');
+
+dropZone.addEventListener('click', function() { fileInput.click(); });
+
+fileInput.addEventListener('change', function() {
+  if (this.files[0]) {
+    fileName.textContent = '✓ ' + this.files[0].name;
+    dropZone.style.borderColor = '#3b82f6';
+    dropZone.style.background = '#eff6ff';
+  }
+});
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = '#3b82f6'; dropZone.style.background = '#eff6ff'; });
+dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#cbd5e1'; dropZone.style.background = ''; });
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.csv')) {
+    const dt = new DataTransfer(); dt.items.add(file);
+    fileInput.files = dt.files;
+    fileName.textContent = '✓ ' + file.name;
+    dropZone.style.borderColor = '#3b82f6';
+    dropZone.style.background = '#eff6ff';
+  }
+});
+</script>
+{% endblock %}

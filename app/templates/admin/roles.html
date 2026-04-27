@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}Manage Users{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">User Management</h1>
+    <p class="page-subtitle">{{ users|length }} user{{ 's' if users|length != 1 else '' }}</p>
+  </div>
+  <button id="show-create-btn" class="btn btn-primary">
+    + Add User
+  </button>
+</div>
+
+<!-- Create User Panel -->
+<div id="create-user-panel" class="card" style="display:none; margin-bottom: 0;">
+  <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 16px;">Create New User</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 140px 160px auto; gap: 10px; align-items: end; flex-wrap: wrap;">
+    <div>
+      <label class="form-label" style="font-size: 12px;">Full Name</label>
+      <input type="text" id="new-name" class="form-input" placeholder="e.g. Pratik Shinde">
+    </div>
+    <div>
+      <label class="form-label" style="font-size: 12px;">Username</label>
+      <input type="text" id="new-username" class="form-input" placeholder="e.g. pratik.shinde">
+    </div>
+    <div>
+      <label class="form-label" style="font-size: 12px;">Password (min 8 chars)</label>
+      <input type="password" id="new-password" class="form-input" placeholder="••••••••">
+    </div>
+    <div>
+      <label class="form-label" style="font-size: 12px;">Role</label>
+      <select id="new-role" class="form-input">
+        <option value="viewer">Viewer</option>
+        <option value="manager">Manager</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label" style="font-size: 12px;">&nbsp;</label>
+      <button id="do-create-btn" class="btn btn-primary" style="width:100%;">Create User</button>
+    </div>
+    <div>
+      <label class="form-label" style="font-size: 12px;">&nbsp;</label>
+      <button id="cancel-create-btn" class="btn btn-secondary" style="width:100%;">Cancel</button>
+    </div>
+  </div>
+  <div id="create-msg" style="margin-top: 10px; font-size: 13px; display: none;"></div>
+</div>
+
+<!-- Users Table -->
+<div class="card" style="padding: 0; overflow: hidden;">
+  {% if users %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Username</th>
+        <th>Role</th>
+        <th>Created By</th>
+        <th style="width: 160px;">Change Role</th>
+        <th style="width: 220px;"></th>
+      </tr>
+    </thead>
+    <tbody id="users-tbody">
+      {% for user in users %}
+      <tr id="user-row-{{ user.oid }}">
+        <td style="font-weight: 600; font-size: 14px;">{{ user.display_name or '—' }}</td>
+        <td style="font-size: 13px; color: #64748b; font-family: monospace;">{{ user.username or '—' }}</td>
+        <td>
+          <span id="role-badge-{{ loop.index }}" style="padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+            {% if user.role == 'admin' %}background:#fee2e2;color:#991b1b;
+            {% elif user.role == 'manager' %}background:#dbeafe;color:#1e40af;
+            {% else %}background:#f3f4f6;color:#374151;{% endif %}">{{ user.role.title() }}</span>
+        </td>
+        <td style="font-size: 13px; color: #64748b;">{{ user.granted_by or '—' }}</td>
+        <td>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <select id="role-select-{{ loop.index }}" class="form-control" style="width: auto; font-size: 13px;">
+              <option value="viewer" {% if user.role == 'viewer' %}selected{% endif %}>Viewer</option>
+              <option value="manager" {% if user.role == 'manager' %}selected{% endif %}>Manager</option>
+              <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+            </select>
+            <button class="btn-update-role btn btn-secondary" data-oid="{{ user.oid }}" data-idx="{{ loop.index }}" style="padding: 5px 10px; font-size: 12px;">Save</button>
+          </div>
+          <div id="role-msg-{{ loop.index }}" style="font-size: 12px; margin-top: 3px; display: none;"></div>
+        </td>
+        <td>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn btn-secondary btn-reset-pwd" style="padding: 4px 9px; font-size: 12px;"
+              data-oid="{{ user.oid }}" data-name="{{ user.display_name or user.username }}">Reset Password</button>
+            {% if user.oid != session.get('user', {}).get('oid') %}
+            <button class="btn btn-danger btn-delete-user" style="padding: 4px 8px; font-size: 12px;"
+              data-oid="{{ user.oid }}" data-name="{{ user.display_name or user.username }}">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            </button>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state" style="padding: 60px 0; text-align: center;">
+    <div style="font-size: 40px; margin-bottom: 12px;">👤</div>
+    <p style="color: #64748b; font-size: 15px;">No users yet</p>
+    <p style="color: #94a3b8; font-size: 13px; margin-top: 8px;">Click "Add User" to create the first user</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Reset Password Modal -->
+<div id="reset-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:9000; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:16px; padding:32px; width:380px; max-width:95vw; box-shadow:0 20px 40px rgba(0,0,0,0.3);">
+    <h3 style="font-size:16px; font-weight:700; margin-bottom:6px;">Reset Password</h3>
+    <p id="reset-for" style="font-size:13px; color:#64748b; margin-bottom:20px;"></p>
+    <input type="hidden" id="reset-oid">
+    <div style="margin-bottom:14px;">
+      <label class="form-label" style="font-size:13px;">New Password (min 8 chars)</label>
+      <input type="password" id="reset-pwd" class="form-input" placeholder="••••••••">
+    </div>
+    <div id="reset-msg" style="font-size:13px; margin-bottom:12px; display:none;"></div>
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button id="reset-cancel-btn" class="btn btn-secondary">Cancel</button>
+      <button id="reset-confirm-btn" class="btn btn-primary">Reset Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- Permissions Reference -->
+<div class="card" style="margin-top: 0;">
+  <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 12px;">Role Permissions</h3>
+  <table class="table" style="font-size: 13px;">
+    <thead><tr><th>Permission</th><th>Viewer</th><th>Manager</th><th>Admin</th></tr></thead>
+    <tbody>
+      <tr><td>View assets, issues, reports</td><td>✅</td><td>✅</td><td>✅</td></tr>
+      <tr><td>Add/edit assets</td><td>❌</td><td>✅</td><td>✅</td></tr>
+      <tr><td>Assign / return assets</td><td>❌</td><td>✅</td><td>✅</td></tr>
+      <tr><td>Report issues, start repairs</td><td>❌</td><td>✅</td><td>✅</td></tr>
+      <tr><td>Bulk upload / bulk actions</td><td>❌</td><td>✅</td><td>✅</td></tr>
+      <tr><td>Delete assets</td><td>❌</td><td>❌</td><td>✅</td></tr>
+      <tr><td>Manage users</td><td>❌</td><td>❌</td><td>✅</td></tr>
+      <tr><td>View activity log</td><td>❌</td><td>❌</td><td>✅</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script nonce="{{ g.csp_nonce }}">
+const csrf = () => document.querySelector('meta[name="csrf-token"]').content;
+
+// ── Show / hide create panel ───────────────────────────────────────────────
+const showBtn = document.getElementById('show-create-btn');
+const panel   = document.getElementById('create-user-panel');
+if (showBtn) showBtn.addEventListener('click', () => {
+  panel.style.display = 'block';
+  showBtn.style.display = 'none';
+});
+const cancelBtn = document.getElementById('cancel-create-btn');
+if (cancelBtn) cancelBtn.addEventListener('click', () => {
+  panel.style.display = 'none';
+  showBtn.style.display = '';
+});
+
+// ── Create User ────────────────────────────────────────────────────────────
+const doCreateBtn = document.getElementById('do-create-btn');
+if (doCreateBtn) doCreateBtn.addEventListener('click', async () => {
+  const name     = document.getElementById('new-name').value.trim();
+  const username = document.getElementById('new-username').value.trim();
+  const password = document.getElementById('new-password').value;
+  const role     = document.getElementById('new-role').value;
+  const msg      = document.getElementById('create-msg');
+
+  const fd = new FormData();
+  fd.append('display_name', name);
+  fd.append('username', username);
+  fd.append('password', password);
+  fd.append('role', role);
+
+  try {
+    const res  = await fetch('/admin/users/create', { method: 'POST', headers: { 'X-CSRFToken': csrf() }, body: fd });
+    const data = await res.json();
+    if (data.ok) {
+      msg.style.color = '#10b981';
+      msg.textContent = `✓ User "${data.display_name}" created.`;
+      msg.style.display = 'block';
+      document.getElementById('new-name').value = '';
+      document.getElementById('new-username').value = '';
+      document.getElementById('new-password').value = '';
+      setTimeout(() => location.reload(), 1200);
+    } else {
+      msg.style.color = '#ef4444';
+      msg.textContent = '✗ ' + (data.error || 'Failed');
+      msg.style.display = 'block';
+    }
+  } catch(e) {
+    msg.style.color = '#ef4444';
+    msg.textContent = '✗ Network error';
+    msg.style.display = 'block';
+  }
+});
+
+// ── Change Role ────────────────────────────────────────────────────────────
+document.querySelectorAll('.btn-update-role').forEach(btn =>
+  btn.addEventListener('click', async function() {
+    const oid    = this.dataset.oid;
+    const idx    = this.dataset.idx;
+    const role   = document.getElementById('role-select-' + idx).value;
+    const msgEl  = document.getElementById('role-msg-' + idx);
+    const badge  = document.getElementById('role-badge-' + idx);
+    const fd = new FormData(); fd.append('role', role);
+    try {
+      const res  = await fetch(`/admin/roles/${oid}`, { method: 'POST', headers: { 'X-CSRFToken': csrf() }, body: fd });
+      const data = await res.json();
+      if (data.ok) {
+        const colors = { admin:'background:#fee2e2;color:#991b1b;', manager:'background:#dbeafe;color:#1e40af;', viewer:'background:#f3f4f6;color:#374151;' };
+        badge.textContent = role.charAt(0).toUpperCase() + role.slice(1);
+        badge.style.cssText = 'padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;' + colors[role];
+        msgEl.textContent = '✓ Updated'; msgEl.style.color = '#10b981'; msgEl.style.display = 'block';
+        setTimeout(() => msgEl.style.display = 'none', 2500);
+      } else { msgEl.textContent = '✗ ' + (data.error || 'Failed'); msgEl.style.color='#ef4444'; msgEl.style.display='block'; }
+    } catch(e) { msgEl.textContent='✗ Network error'; msgEl.style.color='#ef4444'; msgEl.style.display='block'; }
+  })
+);
+
+// ── Reset Password ─────────────────────────────────────────────────────────
+document.querySelectorAll('.btn-reset-pwd').forEach(btn =>
+  btn.addEventListener('click', function() {
+    document.getElementById('reset-oid').value = this.dataset.oid;
+    document.getElementById('reset-for').textContent = 'For: ' + this.dataset.name;
+    document.getElementById('reset-pwd').value = '';
+    document.getElementById('reset-msg').style.display = 'none';
+    document.getElementById('reset-modal').style.display = 'flex';
+  })
+);
+
+const resetModal  = document.getElementById('reset-modal');
+document.getElementById('reset-cancel-btn').addEventListener('click', () => resetModal.style.display = 'none');
+document.getElementById('reset-confirm-btn').addEventListener('click', async () => {
+  const oid = document.getElementById('reset-oid').value;
+  const pwd = document.getElementById('reset-pwd').value;
+  const msg = document.getElementById('reset-msg');
+  const fd  = new FormData(); fd.append('password', pwd);
+  try {
+    const res  = await fetch(`/admin/users/${oid}/reset-password`, { method: 'POST', headers: { 'X-CSRFToken': csrf() }, body: fd });
+    const data = await res.json();
+    if (data.ok) { msg.style.color='#10b981'; msg.textContent='✓ Password updated'; msg.style.display='block'; setTimeout(() => resetModal.style.display='none', 1200); }
+    else { msg.style.color='#ef4444'; msg.textContent='✗ '+(data.error||'Failed'); msg.style.display='block'; }
+  } catch(e) { msg.style.color='#ef4444'; msg.textContent='✗ Network error'; msg.style.display='block'; }
+});
+
+// ── Delete User ────────────────────────────────────────────────────────────
+document.querySelectorAll('.btn-delete-user').forEach(btn =>
+  btn.addEventListener('click', async function() {
+    const oid  = this.dataset.oid;
+    const name = this.dataset.name;
+    if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+    try {
+      const res  = await fetch(`/admin/users/${oid}/delete`, { method: 'POST', headers: { 'X-CSRFToken': csrf() } });
+      const data = await res.json();
+      if (data.ok) {
+        const row = document.getElementById('user-row-' + oid);
+        if (row) { row.style.opacity='0'; row.style.transition='opacity 0.2s'; setTimeout(()=>row.remove(),200); }
+      } else { alert(data.error || 'Failed to delete'); }
+    } catch(e) { alert('Network error'); }
+  })
+);
+</script>
+{% endblock %}

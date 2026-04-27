@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block title %}New Ticket — Helpdesk{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <a href="{{ url_for('helpdesk.ticket_queue') }}" style="font-size: 12px; color: #7c3aed; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px; margin-bottom: 6px; width: fit-content;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to Queue
+    </a>
+    <h1 class="page-title">Create New Ticket</h1>
+    <p class="page-subtitle">Log a support request on behalf of a user</p>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for cat, msg in messages %}
+<div style="margin-bottom: 14px; padding: 11px 16px; border-radius: 8px; background: {{ '#d1fae5' if cat == 'success' else '#fee2e2' }}; color: {{ '#065f46' if cat == 'success' else '#991b1b' }}; font-size: 13px;">{{ msg }}</div>
+{% endfor %}
+{% endwith %}
+
+<form method="POST" action="{{ url_for('helpdesk.ticket_new') }}" id="new-ticket-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div style="display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start;">
+
+    <!-- ── Main form ── -->
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+
+      <!-- Subject -->
+      <div class="card" style="padding: 20px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 13px; font-weight: 600; color: #334155; display: block; margin-bottom: 6px;">
+            Subject <span style="color: #ef4444;">*</span>
+          </label>
+          <input type="text" name="title" value="{{ form.get('title','') }}" required
+            placeholder="Brief description of the issue"
+            style="width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; box-sizing: border-box; transition: border-color 0.2s;"
+            onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="card" style="padding: 20px;">
+        <label class="form-label" style="font-size: 13px; font-weight: 600; color: #334155; display: block; margin-bottom: 6px;">Description</label>
+        <textarea name="description" rows="7" placeholder="Describe the issue in detail — steps to reproduce, what was expected, what happened..."
+          style="width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-family: inherit; resize: vertical; outline: none; box-sizing: border-box; transition: border-color 0.2s;"
+          onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'">{{ form.get('description','') }}</textarea>
+      </div>
+
+      <!-- Requester info -->
+      <div class="card" style="padding: 20px;">
+        <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 14px;">Requester Information</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div class="form-group">
+            <label class="form-label">Full Name <span style="color:#ef4444">*</span></label>
+            <input type="text" name="requester_name" value="{{ form.get('requester_name','') }}" required class="form-control" placeholder="John Smith"
+              onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor=''">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email <span style="color:#ef4444">*</span></label>
+            <input type="email" name="requester_email" value="{{ form.get('requester_email','') }}" required class="form-control" placeholder="john@company.com"
+              onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor=''">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone <span style="font-size: 11px; color: #94a3b8;">(optional)</span></label>
+            <input type="text" name="requester_phone" value="{{ form.get('requester_phone','') }}" class="form-control" placeholder="+91-9876543210">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Source</label>
+            <select name="source" class="form-control">
+              {% for s in [('manual','Manual / Agent'),('web','Web Form'),('email','Email'),('phone','Phone')] %}
+              <option value="{{ s[0] }}" {% if form.get('source','')==s[0] %}selected{% endif %}>{{ s[1] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Right: Ticket properties ── -->
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+
+      <div class="card" style="padding: 16px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #94a3b8; margin-bottom: 14px;">Ticket Properties</div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; color: #64748b;">Priority</label>
+            <select name="priority" id="priority-sel" class="form-control" style="font-size: 13px;">
+              {% for p in [('low','Low'),('medium','Medium'),('high','High'),('critical','Critical')] %}
+              <option value="{{ p[0] }}" {% if form.get('priority','medium')==p[0] %}selected{% endif %}>{{ p[1] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; color: #64748b;">Category</label>
+            <select name="category_id" id="cat-select" class="form-control" style="font-size: 13px;">
+              <option value="">Select category...</option>
+              {% for c in categories if c.parent_id is none %}
+              <option value="{{ c.id }}" {% if form.get('category_id','')==c.id|string %}selected{% endif %}>{{ c.icon + ' ' if c.icon else '' }}{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;" id="subcat-group" style="display:none;">
+            <label class="form-label" style="font-size: 11px; color: #64748b;">Sub-category <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
+            <select name="subcategory_id" id="subcat-select" class="form-control" style="font-size: 13px;">
+              <option value="">Select sub-category...</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; color: #64748b;">Assign To Agent</label>
+            <input type="text" name="assigned_to" value="{{ form.get('assigned_to','') }}" class="form-control" placeholder="Agent name" style="font-size: 13px;">
+            <button type="button" id="btn-assign-me" style="background: none; border: none; font-size: 11px; color: #7c3aed; cursor: pointer; margin-top: 4px; padding: 0; font-weight: 500;">Assign to me →</button>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; color: #64748b;">Tags</label>
+            <input type="text" name="tags" value="{{ form.get('tags','') }}" class="form-control" placeholder="hardware, laptop, urgent" style="font-size: 13px;">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px; color: #64748b;">
+              Ticket Date
+              <span style="font-size: 10px; font-weight: 400; color: #94a3b8;">(leave blank for today)</span>
+            </label>
+            <input type="date" name="ticket_date" id="ticket-date"
+              value="{{ form.get('ticket_date','') }}"
+              max="{{ now().strftime('%Y-%m-%d') }}"
+              class="form-control" style="font-size: 13px;">
+            <div id="backdate-notice" style="display:none; margin-top:5px; padding:5px 8px; background:#fefce8; border:1px solid #fde68a; border-radius:6px; font-size:11px; color:#92400e; font-weight:600;">
+              ⚠️ Backdating ticket to selected date
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Link asset -->
+      <div class="card" style="padding: 16px;">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #94a3b8; margin-bottom: 10px;">Link Asset <span style="font-weight: 400; text-transform: none; letter-spacing: 0;">(optional)</span></div>
+        <input type="hidden" name="asset_id" id="new-ticket-asset-id" value="{{ form.get('asset_id','') }}">
+        <div style="position: relative;">
+          <input type="text" id="new-ticket-asset-search" placeholder="Search serial, model, or user..."
+            class="form-control" style="font-size: 12px;" autocomplete="off">
+          <div id="new-ticket-asset-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:7px;box-shadow:0 4px 16px rgba(0,0,0,0.10);z-index:100;max-height:200px;overflow-y:auto;"></div>
+        </div>
+        <div id="new-ticket-asset-selected" style="display:none;margin-top:8px;padding:8px 10px;background:#f8fafc;border-radius:7px;justify-content:space-between;align-items:center;">
+          <span id="new-ticket-asset-label" style="font-size:12px;font-weight:600;color:#0f172a;"></span>
+          <button type="button" id="new-ticket-asset-clear" style="background:none;border:none;font-size:11px;color:#ef4444;cursor:pointer;margin-left:8px;">Remove</button>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" class="btn btn-primary" style="background: #7c3aed; border-color: #7c3aed; width: 100%; justify-content: center; padding: 12px;">
+        Create Ticket →
+      </button>
+      <a href="{{ url_for('helpdesk.ticket_queue') }}" class="btn btn-secondary" style="width: 100%; justify-content: center; text-align: center;">Cancel</a>
+
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ g.csp_nonce }}">
+const CATS_TREE = {{ categories_json|safe }};
+
+function setMe() {
+  document.querySelector('[name="assigned_to"]').value = '{{ agent.name }}';
+}
+const pColors = {
+  critical: ['#fef2f2','#dc2626'],
+  high: ['#fff7ed','#ea580c'],
+  medium: ['#fefce8','#ca8a04'],
+  low: ['#f0fdf4','#16a34a'],
+};
+function updatePriorityColor() {
+  const sel = document.getElementById('priority-sel');
+  const [bg, fg] = pColors[sel.value] || ['#f8fafc','#64748b'];
+  sel.style.background = bg; sel.style.color = fg; sel.style.fontWeight = '700';
+}
+updatePriorityColor();
+document.getElementById('priority-sel').addEventListener('change', updatePriorityColor);
+document.getElementById('cat-select').addEventListener('change', function() { updateSubcats(this.value); });
+document.getElementById('btn-assign-me').addEventListener('click', setMe);
+
+const ticketDateInput = document.getElementById('ticket-date');
+const backdateNotice  = document.getElementById('backdate-notice');
+const today = new Date().toISOString().slice(0, 10);
+function checkBackdate() {
+  const val = ticketDateInput.value;
+  backdateNotice.style.display = (val && val < today) ? 'block' : 'none';
+}
+ticketDateInput.addEventListener('change', checkBackdate);
+checkBackdate();
+
+function updateSubcats(catId) {
+  const group = document.getElementById('subcat-group');
+  const sel = document.getElementById('subcat-select');
+  const cat = CATS_TREE.find(c => c.id == catId);
+  sel.innerHTML = '<option value="">Select sub-category...</option>';
+  if (cat && cat.children.length) {
+    cat.children.forEach(ch => {
+      const o = document.createElement('option');
+      o.value = ch.id; o.textContent = (ch.icon ? ch.icon + ' ' : '') + ch.name;
+      sel.appendChild(o);
+    });
+    group.style.display = 'block';
+  } else {
+    group.style.display = 'none';
+  }
+}
+// Restore state on page reload (form errors)
+const initCat = document.getElementById('cat-select').value;
+if (initCat) updateSubcats(initCat);
+
+// Live asset search for new ticket
+(function() {
+  const searchInput = document.getElementById('new-ticket-asset-search');
+  const dropdown = document.getElementById('new-ticket-asset-dropdown');
+  const hiddenId = document.getElementById('new-ticket-asset-id');
+  const selectedBox = document.getElementById('new-ticket-asset-selected');
+  const selectedLabel = document.getElementById('new-ticket-asset-label');
+  const clearBtn = document.getElementById('new-ticket-asset-clear');
+  const CSRF = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').content : '';
+  let searchTimer = null;
+
+  function selectAsset(a) {
+    hiddenId.value = a.id;
+    selectedLabel.textContent = (a.serial_number || '') + (a.model ? ' — ' + a.model : '');
+    selectedBox.style.display = 'flex';
+    searchInput.value = '';
+    dropdown.style.display = 'none';
+  }
+
+  clearBtn.addEventListener('click', function() {
+    hiddenId.value = '';
+    selectedBox.style.display = 'none';
+    searchInput.value = '';
+    searchInput.focus();
+  });
+
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    const q = this.value.trim();
+    if (q.length < 2) { dropdown.style.display = 'none'; return; }
+    searchTimer = setTimeout(function() {
+      fetch('/api/search?q=' + encodeURIComponent(q), {
+        headers: CSRF ? { 'X-CSRFToken': CSRF } : {}
+      }).then(r => r.json()).then(function(results) {
+        dropdown.innerHTML = '';
+        if (!results.length) {
+          dropdown.innerHTML = '<div style="padding:8px 12px;font-size:12px;color:#94a3b8;">No assets found</div>';
+          dropdown.style.display = 'block';
+          return;
+        }
+        results.forEach(function(a) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.style.cssText = 'width:100%;text-align:left;padding:8px 12px;background:#fff;border:none;border-bottom:1px solid #f1f5f9;cursor:pointer;font-family:inherit;';
+          btn.innerHTML = '<div style="font-size:12px;font-weight:600;color:#0f172a;">' + (a.serial_number || '') + '</div>' +
+            '<div style="font-size:11px;color:#64748b;">' + (a.model || '') + (a.manufacturer ? ' · ' + a.manufacturer : '') + ' — ' + (a.status || '') + (a.current_user ? ' · ' + a.current_user : '') + '</div>';
+          btn.addEventListener('mousedown', function(e) { e.preventDefault(); selectAsset(a); });
+          btn.addEventListener('mouseover', function() { this.style.background = '#f8fafc'; });
+          btn.addEventListener('mouseout', function() { this.style.background = '#fff'; });
+          dropdown.appendChild(btn);
+        });
+        dropdown.style.display = 'block';
+      }).catch(function() { dropdown.style.display = 'none'; });
+    }, 250);
+  });
+
+  searchInput.addEventListener('blur', function() {
+    setTimeout(function() { dropdown.style.display = 'none'; }, 150);
+  });
+  searchInput.addEventListener('focus', function() {
+    if (dropdown.children.length) dropdown.style.display = 'block';
+  });
+})();
+</script>
+{% endblock %}

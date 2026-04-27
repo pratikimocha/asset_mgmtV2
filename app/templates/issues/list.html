@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}Issues{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Issue Tracker</h1>
+    <p class="page-subtitle">{{ total }} issue{{ 's' if total != 1 else '' }}</p>
+  </div>
+</div>
+
+<form method="get" class="filters-bar">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search issues..." class="filter-input" style="flex: 1; min-width: 200px;">
+  <select name="status" class="filter-input">
+    <option value="">All Status</option>
+    <option value="open" {% if status_f == 'open' %}selected{% endif %}>Open</option>
+    <option value="in-progress" {% if status_f == 'in-progress' %}selected{% endif %}>In Progress</option>
+    <option value="closed" {% if status_f == 'closed' %}selected{% endif %}>Closed</option>
+  </select>
+  <select name="severity" class="filter-input">
+    <option value="">All Severity</option>
+    <option value="high" {% if severity_f == 'high' %}selected{% endif %}>High</option>
+    <option value="medium" {% if severity_f == 'medium' %}selected{% endif %}>Medium</option>
+    <option value="low" {% if severity_f == 'low' %}selected{% endif %}>Low</option>
+  </select>
+  {% if model_f %}<input type="hidden" name="model_f" value="{{ model_f }}">{% endif %}
+  <button type="submit" class="btn btn-primary">Filter</button>
+  {% if q or status_f or severity_f or model_f %}
+  <a href="{{ url_for('issues.list') }}" class="btn btn-secondary">Clear</a>
+  {% endif %}
+</form>
+
+{% if model_f %}
+<div style="margin-bottom: 14px;">
+  <span style="display:inline-flex;align-items:center;gap:6px;background:#fee2e2;color:#991b1b;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:500;">
+    Model: {{ model_f }}
+    <a href="{{ url_for('issues.list') }}" style="color:inherit;font-weight:700;text-decoration:none;margin-left:2px;">✕</a>
+  </span>
+</div>
+{% endif %}
+
+<div class="card" style="padding: 0; overflow: hidden;">
+  {% if issues %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Asset</th>
+        <th>Issue</th>
+        <th>Severity</th>
+        <th>Status</th>
+        <th>Reported By</th>
+        <th>Date</th>
+        {% if session.get('user', {}).get('role') in ('admin', 'manager') %}<th style="width:185px;"></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for issue, asset in issues %}
+      <tr id="issue-row-{{ issue.id }}">
+        <td>
+          <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" style="color: #3b82f6; text-decoration: none; font-weight: 600; font-size: 13px;">{{ asset.serial_number }}</a>
+          <div style="font-size: 12px; color: #64748b;">{{ asset.model or '' }}</div>
+        </td>
+        <td style="max-width: 300px; font-size: 14px; color: #0f172a;">{{ issue.issue_text }}</td>
+        <td>
+          {% if issue.severity == 'high' %}
+          <span style="background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;">High</span>
+          {% elif issue.severity == 'medium' %}
+          <span style="background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;">Medium</span>
+          {% else %}
+          <span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;">Low</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if issue.status == 'open' %}
+          <span style="background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;">Open</span>
+          {% elif issue.status == 'in-progress' %}
+          <span style="background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;">In Progress</span>
+          {% else %}
+          <span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;">Closed</span>
+          {% endif %}
+        </td>
+        <td style="font-size: 13px; color: #64748b;">{{ issue.reported_by or '—' }}</td>
+        <td style="font-size: 12px; color: #94a3b8; white-space: nowrap;">{{ issue.date_reported.strftime('%b %d, %Y') if issue.date_reported else '—' }}</td>
+        {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+        <td>
+          <div style="display: flex; gap: 5px; flex-wrap: nowrap; align-items: center;">
+            {% if issue.status in ('open', 'in-progress') %}
+            <button class="btn-resolve-issue btn btn-secondary"
+              data-issue-id="{{ issue.id }}"
+              style="padding:4px 9px;font-size:12px;color:#15803d;border-color:#bbf7d0;background:#f0fdf4;"
+              title="Mark resolved — asset becomes working">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:2px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Resolve
+            </button>
+            <button class="btn-start-repair btn btn-secondary"
+              data-issue-id="{{ issue.id }}"
+              style="padding:4px 9px;font-size:12px;"
+              title="Send to repair">Repair
+            </button>
+            {% endif %}
+            <button class="btn-delete-issue btn btn-danger"
+              data-issue-id="{{ issue.id }}"
+              style="padding:4px 8px;font-size:12px;"
+              title="Delete issue">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+            </button>
+          </div>
+        </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state" style="padding: 60px 0; text-align: center;">
+    <div style="font-size: 40px; margin-bottom: 12px;">✅</div>
+    <p style="color: #64748b; font-size: 15px;">No issues found</p>
+    {% if status_f or severity_f or q %}
+    <a href="{{ url_for('issues.list') }}" style="color: #3b82f6; text-decoration: none; font-size: 14px;">Clear filters</a>
+    {% else %}
+    <p style="color: #94a3b8; font-size: 13px; margin-top: 8px;">All assets are working correctly</p>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% if pages > 1 %}
+<div class="pagination" style="justify-content: center; margin-top: 20px;">
+  {% if page > 1 %}<a href="?page={{ page-1 }}&status={{ status_f }}&severity={{ severity_f }}&q={{ q }}&model_f={{ model_f }}" class="page-link">← Prev</a>{% endif %}
+  {% for p in range(1, pages+1) %}
+  {% if p == page %}<span class="page-link active">{{ p }}</span>
+  {% elif p <= 2 or p >= pages-1 or (p >= page-2 and p <= page+2) %}<a href="?page={{ p }}&status={{ status_f }}&severity={{ severity_f }}&q={{ q }}&model_f={{ model_f }}" class="page-link">{{ p }}</a>{% endif %}
+  {% endfor %}
+  {% if page < pages %}<a href="?page={{ page+1 }}&status={{ status_f }}&severity={{ severity_f }}&q={{ q }}&model_f={{ model_f }}" class="page-link">Next →</a>{% endif %}
+</div>
+{% endif %}
+
+<script nonce="{{ g.csp_nonce }}">
+const csrf = document.querySelector('meta[name="csrf-token"]').content;
+
+async function issueAction(issueId, url, confirmMsg) {
+  if (confirmMsg && !confirm(confirmMsg)) return;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const json = await res.json();
+    if (json.ok) {
+      // Fade out and remove the row — no page reload needed, counts update on next visit to stock page
+      const row = document.getElementById('issue-row-' + issueId);
+      if (row) {
+        row.style.transition = 'opacity 0.25s';
+        row.style.opacity = '0';
+        setTimeout(() => row.remove(), 250);
+      }
+    } else {
+      alert(json.error || 'Action failed');
+    }
+  } catch(e) { alert('Request failed'); }
+}
+
+document.querySelectorAll('.btn-resolve-issue').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    issueAction(this.dataset.issueId, '/issues/' + this.dataset.issueId + '/resolve',
+      'Mark as resolved? Asset will be counted as working.');
+  });
+});
+
+document.querySelectorAll('.btn-delete-issue').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    issueAction(this.dataset.issueId, '/issues/' + this.dataset.issueId + '/delete',
+      'Delete this issue? This cannot be undone.');
+  });
+});
+
+document.querySelectorAll('.btn-start-repair').forEach(function(btn) {
+  btn.addEventListener('click', async function() {
+    if (!confirm('Send to repair? Asset status will change to In Repair.')) return;
+    try {
+      const res = await fetch('/issues/' + this.dataset.issueId + '/start_repair', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const json = await res.json();
+      if (json.ok) { location.reload(); } else { alert(json.error || 'Failed'); }
+    } catch(e) { alert('Request failed'); }
+  });
+});
+</script>
+{% endblock %}

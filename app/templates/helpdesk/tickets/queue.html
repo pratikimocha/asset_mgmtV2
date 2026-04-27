@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}Ticket Queue — Helpdesk{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Ticket Queue</h1>
+    <p class="page-subtitle">{{ total }} ticket{{ 's' if total != 1 else '' }} in current view</p>
+  </div>
+  <div style="display: flex; gap: 8px;">
+    <a href="{{ url_for('helpdesk.ticket_new') }}" class="btn btn-primary">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New Ticket
+    </a>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: start;">
+
+  <!-- ── Left: Views sidebar ── -->
+  <div style="position: sticky; top: 80px;">
+    <div class="card" style="padding: 10px 0;">
+      <div style="padding: 6px 14px 8px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8;">Views</div>
+
+      {% set views = [
+        ('unsolved', 'All Unsolved', 'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z', counts.unsolved),
+        ('mine', 'My Tickets', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', counts.mine),
+        ('unassigned', 'Unassigned', 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', counts.unassigned),
+        ('solved', 'Solved', 'M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z', none),
+        ('all', 'All Tickets', 'M4 6h16M4 10h16M4 14h16M4 18h16', none),
+      ] %}
+
+      {% for v_key, v_label, v_icon, v_count in views %}
+      <a href="{{ url_for('helpdesk.ticket_queue', view=v_key) }}"
+        style="display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; font-size: 13px; font-weight: {% if view == v_key %}600{% else %}400{% endif %}; color: {% if view == v_key %}#7c3aed{% else %}#334155{% endif %}; background: {% if view == v_key %}#ede9fe{% else %}transparent{% endif %}; text-decoration: none; border-radius: 6px; margin: 1px 6px; transition: all 0.1s;">
+        <span>{{ v_label }}</span>
+        {% if v_count is not none and v_count > 0 %}
+        <span style="font-size: 11px; font-weight: 700; background: {% if view == v_key %}#7c3aed{% else %}#e2e8f0{% endif %}; color: {% if view == v_key %}#fff{% else %}#475569{% endif %}; padding: 1px 7px; border-radius: 10px;">{{ v_count }}</span>
+        {% endif %}
+      </a>
+      {% endfor %}
+
+      {% if counts.breached > 0 %}
+      <div style="margin: 6px 6px 0; border-top: 1px solid #fee2e2; padding-top: 6px;">
+        <a href="{{ url_for('helpdesk.ticket_queue', view='breached') }}"
+          style="display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; font-size: 13px; font-weight: {% if view == 'breached' %}600{% else %}400{% endif %}; color: #dc2626; background: {% if view == 'breached' %}#fef2f2{% else %}transparent{% endif %}; text-decoration: none; border-radius: 6px; transition: all 0.1s;">
+          <span>⚠ SLA Breached</span>
+          <span style="font-size: 11px; font-weight: 700; background: #dc2626; color: #fff; padding: 1px 7px; border-radius: 10px;">{{ counts.breached }}</span>
+        </a>
+      </div>
+      {% endif %}
+
+      {% if categories %}
+      <div style="padding: 10px 14px 4px; margin-top: 4px; border-top: 1px solid #f1f5f9; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8;">By Category</div>
+      {% for cat in categories %}
+      <a href="{{ url_for('helpdesk.ticket_queue', view='unsolved', category=cat.id) }}"
+        style="display: flex; align-items: center; gap: 7px; padding: 7px 14px; font-size: 12px; color: {% if category_f == cat.id %}#7c3aed{% else %}#475569{% endif %}; background: {% if category_f == cat.id %}#ede9fe{% else %}transparent{% endif %}; text-decoration: none; border-radius: 6px; margin: 1px 6px;">
+        <span style="width: 7px; height: 7px; border-radius: 50%; background: {{ cat.color }}; flex-shrink: 0;"></span>
+        {{ cat.name }}
+      </a>
+      {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Right: Ticket list ── -->
+  <div>
+    <!-- Search + filter bar -->
+    <form method="GET" action="{{ url_for('helpdesk.ticket_queue') }}" style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
+      <input type="hidden" name="view" value="{{ view }}">
+      <div style="position: relative; flex: 1; min-width: 200px;">
+        <svg style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" name="q" value="{{ q }}" placeholder="Search tickets, requester..."
+          style="width: 100%; padding: 8px 12px 8px 32px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; background: #f8fafc; outline: none; font-family: inherit;">
+      </div>
+      <select name="priority" style="padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; background: #f8fafc; font-family: inherit; color: #334155;">
+        <option value="">All Priorities</option>
+        {% for p in ['critical', 'high', 'medium', 'low'] %}
+        <option value="{{ p }}" {% if priority_f == p %}selected{% endif %}>{{ p.title() }}</option>
+        {% endfor %}
+      </select>
+      <select name="sort" style="padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; background: #f8fafc; font-family: inherit; color: #334155;">
+        <option value="updated" {% if sort == 'updated' %}selected{% endif %}>Last Updated</option>
+        <option value="priority" {% if sort == 'priority' %}selected{% endif %}>Priority</option>
+        <option value="created" {% if sort == 'created' %}selected{% endif %}>Newest First</option>
+        <option value="sla" {% if sort == 'sla' %}selected{% endif %}>SLA Due</option>
+      </select>
+      <button type="submit" class="btn btn-secondary" style="padding: 8px 14px; font-size: 13px;">Filter</button>
+      {% if q or priority_f or category_f %}
+      <a href="{{ url_for('helpdesk.ticket_queue', view=view) }}" class="btn btn-secondary" style="padding: 8px 12px; font-size: 13px; color: #64748b;">✕ Clear</a>
+      {% endif %}
+    </form>
+
+    <!-- Ticket table -->
+    {% if tickets %}
+    <div class="card" style="padding: 0; overflow: hidden;">
+      <table class="table" style="margin: 0;">
+        <thead>
+          <tr>
+            <th style="width: 95px;">Ticket #</th>
+            <th>Subject</th>
+            <th style="width: 130px;">Requester</th>
+            <th style="width: 110px;">Category</th>
+            <th style="width: 90px;">Priority</th>
+            <th style="width: 90px;">Status</th>
+            <th style="width: 110px;">Assigned</th>
+            <th style="width: 100px;">SLA</th>
+            <th style="width: 80px;">Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in tickets %}
+          {% set sbg, sfg = t.status_colors %}
+          {% set pbg, pfg = t.priority_colors %}
+          <tr style="cursor: pointer;" data-href="{{ url_for('helpdesk.ticket_detail', number=t.number) }}">
+            <td>
+              <a href="{{ url_for('helpdesk.ticket_detail', number=t.number) }}" style="font-size: 12px; font-weight: 700; color: #7c3aed; text-decoration: none;">{{ t.number }}</a>
+            </td>
+            <td style="max-width: 0;">
+              <a href="{{ url_for('helpdesk.ticket_detail', number=t.number) }}" style="text-decoration:none;">
+              <div style="font-weight: 600; color: #0f172a; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ t.title }}</div>
+              {% if t.description %}
+              <div style="font-size: 12px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px;">{{ t.description[:100] }}</div>
+              {% endif %}
+              </a>
+            </td>
+            <td>
+              <div style="font-size: 12px; color: #334155; font-weight: 500;">{{ t.requester_name }}</div>
+              <div style="font-size: 11px; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; max-width: 110px;">{{ t.requester_email }}</div>
+            </td>
+            <td>
+              {% if t.category %}
+              <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #475569;">
+                <span style="width: 6px; height: 6px; border-radius: 50%; background: {{ t.category.color }};"></span>
+                {{ t.category.name }}
+              </span>
+              {% else %}
+              <span style="font-size: 11px; color: #cbd5e1;">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <span style="font-size: 11px; font-weight: 700; background: {{ pbg }}; color: {{ pfg }}; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.04em;">{{ t.priority }}</span>
+            </td>
+            <td>
+              <span style="font-size: 11px; font-weight: 600; background: {{ sbg }}; color: {{ sfg }}; padding: 2px 9px; border-radius: 10px;">{{ t.status.replace('_', ' ').title() }}</span>
+            </td>
+            <td style="font-size: 12px; color: #475569;">
+              {% if t.assigned_to %}
+              {{ t.assigned_to.split()[0] if t.assigned_to else '—' }}
+              {% else %}
+              <span style="color: #f59e0b; font-weight: 500;">Unassigned</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if t._sla %}
+                {% if t._sla.state == 'breached' %}
+                <span style="font-size: 11px; color: #dc2626; font-weight: 600;">⚠ {{ t._sla.text }}</span>
+                {% elif t._sla.state == 'warning' %}
+                <span style="font-size: 11px; color: #ea580c; font-weight: 600;">⏰ {{ t._sla.text }}</span>
+                {% elif t._sla.state == 'met' %}
+                <span style="font-size: 11px; color: #16a34a;">✓ Met</span>
+                {% else %}
+                <span style="font-size: 11px; color: #64748b;">{{ t._sla.text }}</span>
+                {% endif %}
+              {% else %}
+              <span style="font-size: 11px; color: #cbd5e1;">No SLA</span>
+              {% endif %}
+            </td>
+            <td style="font-size: 11px; color: #94a3b8; white-space: nowrap;">
+              {{ t.created_at | localtime('%d %b') }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if pages > 1 %}
+    <div style="display: flex; justify-content: center; gap: 6px; margin-top: 16px;">
+      {% if page > 1 %}
+      <a href="{{ url_for('helpdesk.ticket_queue', view=view, page=page-1, q=q, priority=priority_f, category=category_f, sort=sort) }}" class="btn btn-secondary" style="padding: 6px 14px; font-size: 13px;">← Prev</a>
+      {% endif %}
+      <span style="padding: 6px 14px; font-size: 13px; color: #64748b; align-self: center;">Page {{ page }} of {{ pages }}</span>
+      {% if page < pages %}
+      <a href="{{ url_for('helpdesk.ticket_queue', view=view, page=page+1, q=q, priority=priority_f, category=category_f, sort=sort) }}" class="btn btn-secondary" style="padding: 6px 14px; font-size: 13px;">Next →</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div style="text-align: center; padding: 80px 20px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;">
+      <div style="font-size: 48px; margin-bottom: 14px;">🎉</div>
+      <h3 style="color: #0f172a; font-size: 17px; font-weight: 600; margin-bottom: 6px;">
+        {% if view == 'unsolved' %}All caught up!{% else %}No tickets found{% endif %}
+      </h3>
+      <p style="color: #64748b; font-size: 13px; margin-bottom: 18px;">
+        {% if q or priority_f %}Try clearing your filters.{% else %}Create a new ticket to get started.{% endif %}
+      </p>
+      <a href="{{ url_for('helpdesk.ticket_new') }}" class="btn btn-primary">New Ticket</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ g.csp_nonce }}">
+// Make entire table row clickable via data-href (avoids CSP inline onclick)
+document.querySelectorAll('tr[data-href]').forEach(function(row) {
+  row.addEventListener('click', function(e) {
+    if (e.target.tagName === 'A' || e.target.closest('a')) return;
+    window.location.href = row.dataset.href;
+  });
+});
+</script>
+{% endblock %}

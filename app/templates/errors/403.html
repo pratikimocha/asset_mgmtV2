@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}403 — Forbidden{% endblock %}
+{% block content %}
+<div class="empty-state" style="padding: 80px 0; text-align: center;">
+  <div style="font-size: 64px; margin-bottom: 16px;">🚫</div>
+  <h2 style="font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 8px;">403 — Access Denied</h2>
+  <p style="color: #64748b; margin-bottom: 24px;">You don't have permission to access this page.</p>
+  <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">Go to Dashboard</a>
+</div>
+{% endblock %}

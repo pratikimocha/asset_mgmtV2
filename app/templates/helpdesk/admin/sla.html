@@ -1,0 +1,612 @@
+{% extends "base.html" %}
+{% block title %}SLA Policies{% endblock %}
+{% set pcols2 = [('critical','Critical'),('high','High'),('medium','Medium'),('low','Low')] %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">SLA Policies</h1>
+    <p class="page-subtitle">Response and resolution time targets by category &amp; priority</p>
+  </div>
+  <div style="display: flex; gap: 10px;">
+    <button id="btn-quick-setup" class="btn btn-secondary" style="font-size: 13px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Quick Setup
+    </button>
+    <button id="btn-add-sla" class="btn btn-primary" style="font-size: 13px; background: #7c3aed; border-color: #7c3aed;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Policy
+    </button>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+  <div style="margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; background: {{ '#d1fae5' if cat == 'success' else '#fee2e2' }}; color: {{ '#065f46' if cat == 'success' else '#991b1b' }}; font-size: 13px;">{{ msg }}</div>
+  {% endfor %}
+{% endwith %}
+
+<!-- Coverage summary strip -->
+{% set pct = ((filled_cells / total_cells * 100)|int) if total_cells else 0 %}
+{% set global_row = matrix.get(none, {}) %}
+{% set global_filled = global_row.values() | select | list | length %}
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
+  <div class="card" style="padding: 14px 16px; margin-bottom: 0; border-left: 3px solid #7c3aed;">
+    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #7c3aed; margin-bottom: 4px;">Coverage</div>
+    <div style="font-size: 22px; font-weight: 800; color: #0f172a;">{{ filled_cells }}<span style="font-size: 13px; font-weight: 500; color: #94a3b8;"> / {{ total_cells }}</span></div>
+    <div style="margin-top: 6px; height: 4px; background: #f1f5f9; border-radius: 2px; overflow: hidden;">
+      <div style="height: 100%; width: {{ pct }}%; background: {% if pct == 100 %}#16a34a{% elif pct >= 50 %}#7c3aed{% else %}#ea580c{% endif %}; border-radius: 2px; transition: width 0.4s;"></div>
+    </div>
+    <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">{{ pct }}% cells filled</div>
+  </div>
+  <div class="card" style="padding: 14px 16px; margin-bottom: 0; border-left: 3px solid #0ea5e9;">
+    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #0ea5e9; margin-bottom: 4px;">Categories</div>
+    <div style="font-size: 22px; font-weight: 800; color: #0f172a;">{{ categories | length }}</div>
+    <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Active categories</div>
+  </div>
+  <div class="card" style="padding: 14px 16px; margin-bottom: 0; border-left: 3px solid {% if global_filled == 4 %}#16a34a{% elif global_filled > 0 %}#d97706{% else %}#ef4444{% endif %};">
+    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: {% if global_filled == 4 %}#16a34a{% elif global_filled > 0 %}#d97706{% else %}#ef4444{% endif %}; margin-bottom: 4px;">Global Default</div>
+    <div style="font-size: 22px; font-weight: 800; color: #0f172a;">{{ global_filled }}<span style="font-size: 13px; font-weight: 500; color: #94a3b8;"> / 4</span></div>
+    <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Priority levels set</div>
+  </div>
+  <div class="card" style="padding: 14px 16px; margin-bottom: 0; border-left: 3px solid #64748b;">
+    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 4px;">Unconfigured</div>
+    <div style="font-size: 22px; font-weight: 800; color: {% if total_cells - filled_cells == 0 %}#16a34a{% else %}#0f172a{% endif %};">{{ total_cells - filled_cells }}</div>
+    <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Cells use fallback</div>
+  </div>
+</div>
+
+<!-- Matrix table -->
+<div class="card" style="padding: 0; overflow: hidden;">
+  <div style="padding: 14px 20px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between;">
+    <h3 class="card-title" style="margin: 0;">Coverage Matrix</h3>
+    <span style="font-size: 12px; color: #94a3b8;">Rows = categories · Columns = priority levels · Click any cell to add or edit</span>
+  </div>
+  <div style="overflow-x: auto;">
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="background: #f8fafc;">
+          <th style="padding: 11px 20px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; border-bottom: 1px solid #e2e8f0; min-width: 160px;">Category</th>
+          {% set pcols = [('critical','#dc2626','#fef2f2'),('high','#ea580c','#fff7ed'),('medium','#d97706','#fefce8'),('low','#16a34a','#f0fdf4')] %}
+          {% for pid, pfg, pbg in pcols %}
+          <th style="padding: 11px 20px; text-align: center; border-bottom: 1px solid #e2e8f0; min-width: 180px;">
+            <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: {{ pbg }}; color: {{ pfg }}; padding: 3px 10px; border-radius: 10px;">{{ pid }}</span>
+          </th>
+          {% endfor %}
+          <th style="padding: 11px 16px; border-bottom: 1px solid #e2e8f0; min-width: 90px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- Global row (category_id = None) -->
+        {% set grow = matrix.get(none, {}) %}
+        <tr style="background: #fafafa; border-bottom: 2px solid #e2e8f0;" id="matrix-row-global">
+          <td style="padding: 14px 20px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="width: 28px; height: 28px; border-radius: 6px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 14px;">🌐</div>
+              <div>
+                <div style="font-size: 13px; font-weight: 700; color: #0f172a;">Global Default</div>
+                <div style="font-size: 11px; color: #94a3b8;">Applies to all categories without a specific policy</div>
+              </div>
+            </div>
+          </td>
+          {% for pid, pfg, pbg in pcols %}
+          {% set pol = grow.get(pid) %}
+          <td style="padding: 10px 16px; text-align: center; border-left: 1px solid #f1f5f9;">
+            {% if pol %}
+            <div class="sla-cell-set" data-id="{{ pol.id }}" data-pol='{{ pol.to_dict()|tojson }}' data-fg="{{ pfg }}" data-bg="{{ pbg }}"
+              style="cursor: pointer; padding: 8px 10px; border-radius: 8px; background: white; border: 1px solid #e2e8f0; transition: all 0.15s; display: inline-block; min-width: 130px; text-align: left;">
+              <div style="font-size: 11px; color: #64748b; margin-bottom: 2px;">{{ pol.name }}</div>
+              <div style="font-size: 13px; font-weight: 700; color: #0f172a;">
+                {{ format_hours(pol.first_response_hours) }} → {{ format_hours(pol.resolution_hours) }}
+              </div>
+              <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">
+                {{ '🕒 Biz hrs' if pol.business_hours_only else '🔁 24/7' }}
+                {% if not pol.is_active %}<span style="color: #ef4444;"> · inactive</span>{% endif %}
+              </div>
+            </div>
+            {% else %}
+            <button class="btn-sla-add-cell" data-cat="" data-priority="{{ pid }}" data-fg="{{ pfg }}" data-bg="{{ pbg }}"
+              style="border: 1.5px dashed #d1d5db; background: transparent; border-radius: 8px; padding: 8px 16px; font-size: 12px; color: #94a3b8; cursor: pointer; transition: all 0.15s; min-width: 130px;">
+              + Not set
+            </button>
+            {% endif %}
+          </td>
+          {% endfor %}
+          <td style="padding: 10px 16px; border-left: 1px solid #f1f5f9; text-align: center;">
+            <button class="btn btn-secondary btn-quick-row" data-cat="" data-cat-name="Global Default"
+              style="font-size: 11px; padding: 4px 10px; white-space: nowrap;">⚡ Quick</button>
+          </td>
+        </tr>
+
+        <!-- Category rows -->
+        {% for cat in categories %}
+        {% set crow = matrix.get(cat.id, {}) %}
+        {% set filled = crow.values() | select | list | length %}
+        <tr style="border-bottom: 1px solid #f1f5f9;" id="matrix-row-{{ cat.id }}">
+          <td style="padding: 14px 20px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="width: 28px; height: 28px; border-radius: 6px; background: {{ cat.color }}22; display: flex; align-items: center; justify-content: center; font-size: 14px; border: 1px solid {{ cat.color }}44;">{{ cat.icon or '📁' }}</div>
+              <div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-size: 13px; font-weight: 600; color: #0f172a;">{{ cat.name }}</span>
+                  <span style="font-size: 10px; font-weight: 700; color: {{ cat.color }}; background: {{ cat.color }}18; padding: 1px 6px; border-radius: 8px;">{{ filled }}/4</span>
+                </div>
+                <div style="font-size: 11px; color: #94a3b8;">{{ cat.slug }}</div>
+              </div>
+            </div>
+          </td>
+          {% for pid, pfg, pbg in pcols %}
+          {% set pol = crow.get(pid) %}
+          <td style="padding: 10px 16px; text-align: center; border-left: 1px solid #f1f5f9;">
+            {% if pol %}
+            <div class="sla-cell-set" data-id="{{ pol.id }}" data-pol='{{ pol.to_dict()|tojson }}' data-fg="{{ pfg }}" data-bg="{{ pbg }}"
+              style="cursor: pointer; padding: 8px 10px; border-radius: 8px; background: white; border: 1px solid #e2e8f0; transition: all 0.15s; display: inline-block; min-width: 130px; text-align: left;">
+              <div style="font-size: 11px; color: #64748b; margin-bottom: 2px;">{{ pol.name }}</div>
+              <div style="font-size: 13px; font-weight: 700; color: #0f172a;">
+                {{ format_hours(pol.first_response_hours) }} → {{ format_hours(pol.resolution_hours) }}
+              </div>
+              <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">
+                {{ '🕒 Biz hrs' if pol.business_hours_only else '🔁 24/7' }}
+                {% if not pol.is_active %}<span style="color: #ef4444;"> · inactive</span>{% endif %}
+              </div>
+            </div>
+            {% else %}
+            {% set global_pol = matrix.get(none, {}).get(pid) %}
+            <button class="btn-sla-add-cell" data-cat="{{ cat.id }}" data-priority="{{ pid }}" data-fg="{{ pfg }}" data-bg="{{ pbg }}"
+              style="border: 1.5px dashed #d1d5db; background: transparent; border-radius: 8px; padding: 8px 16px; font-size: 12px; color: #94a3b8; cursor: pointer; transition: all 0.15s; min-width: 130px; position: relative;">
+              {% if global_pol %}
+              <div style="font-size: 10px; color: #94a3b8; pointer-events: none;">↳ uses global</div>
+              {% else %}
+              + Not set
+              {% endif %}
+            </button>
+            {% endif %}
+          </td>
+          {% endfor %}
+          <td style="padding: 10px 16px; border-left: 1px solid #f1f5f9; text-align: center;">
+            <button class="btn btn-secondary btn-quick-row" data-cat="{{ cat.id }}" data-cat-name="{{ cat.name }}"
+              style="font-size: 11px; padding: 4px 10px; white-space: nowrap;">⚡ Quick</button>
+          </td>
+        </tr>
+        {% endfor %}
+
+        {% if not categories %}
+        <tr>
+          <td colspan="6" style="padding: 40px; text-align: center; color: #94a3b8; font-size: 13px;">
+            No categories yet — <a href="{{ url_for('helpdesk.categories') }}" style="color: #7c3aed; text-decoration: none; font-weight: 500;">create categories first</a>
+          </td>
+        </tr>
+        {% endif %}
+
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Add Policy Modal ── -->
+<div class="modal-overlay" id="add-sla-modal">
+  <div class="modal" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Add SLA Policy</h3>
+      <button class="modal-close btn-modal-close" data-modal="add-sla-modal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form method="POST" action="{{ url_for('helpdesk.sla_add') }}" id="add-sla-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="form-group">
+          <label class="form-label">Policy Name <span style="color:#ef4444">*</span></label>
+          <input type="text" name="name" id="asla-name" class="form-control" placeholder="e.g. Hardware – Critical" required>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select name="category_id" id="asla-cat" class="form-control">
+              <option value="">All categories (Global)</option>
+              {% for c in categories %}
+              <option value="{{ c.id }}">{{ c.icon or '' }} {{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priority <span style="color:#ef4444">*</span></label>
+            <select name="priority" id="asla-priority" class="form-control" required>
+              {% for pv, pl in pcols2 %}
+              <option value="{{ pv }}">{{ pl }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Hour inputs with visual presets -->
+        <div>
+          <label class="form-label" style="margin-bottom: 8px;">Time Targets</label>
+          <div style="display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;">
+            {% set presets = [('Strict','0.5,2'),('Standard','1,4'),('Relaxed','2,8')] %}
+            {% for plabel, pvals in presets %}
+            <button type="button" class="btn-preset-sla" data-vals="{{ pvals }}"
+              style="font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px; border: 1.5px solid #e2e8f0; background: white; color: #64748b; cursor: pointer; transition: all 0.15s;">
+              {{ plabel }}
+            </button>
+            {% endfor %}
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 11px;">First Response <span style="color:#94a3b8">(hours)</span></label>
+              <input type="number" name="first_response_hours" id="asla-fr" class="form-control" value="8" min="0.25" step="0.25" required>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 11px;">Resolution <span style="color:#94a3b8">(hours)</span></label>
+              <input type="number" name="resolution_hours" id="asla-res" class="form-control" value="48" min="1" step="0.5" required>
+            </div>
+          </div>
+        </div>
+
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+          <input type="checkbox" name="business_hours_only" value="1" id="asla-biz" checked style="width: 15px; height: 15px; accent-color: #7c3aed;">
+          Business hours only <span style="font-size: 11px; color: #94a3b8;">(Mon–Fri, 9am–6pm)</span>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-modal-close" data-modal="add-sla-modal">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="background: #7c3aed; border-color: #7c3aed;">Create Policy</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Edit Policy Modal ── -->
+<div class="modal-overlay" id="edit-sla-modal">
+  <div class="modal" style="max-width: 480px;">
+    <div class="modal-header">
+      <div>
+        <h3 class="modal-title">Edit SLA Policy</h3>
+        <p style="font-size: 12px; color: #94a3b8; margin: 2px 0 0 0;" id="esla-subtitle"></p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button id="esla-delete-btn" style="font-size: 12px; color: #ef4444; border: 1.5px solid #fecaca; background: white; border-radius: 6px; padding: 4px 10px; cursor: pointer;">Delete</button>
+        <button class="modal-close btn-modal-close" data-modal="edit-sla-modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <form id="edit-sla-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="form-group">
+          <label class="form-label">Policy Name</label>
+          <input type="text" name="name" id="esla-name" class="form-control">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select name="category_id" id="esla-cat" class="form-control">
+              <option value="">All categories (Global)</option>
+              {% for c in categories %}
+              <option value="{{ c.id }}">{{ c.icon or '' }} {{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priority</label>
+            <select name="priority" id="esla-priority" class="form-control">
+              {% for pv, pl in pcols2 %}
+              <option value="{{ pv }}">{{ pl }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px;">First Response <span style="color:#94a3b8">(hours)</span></label>
+            <input type="number" name="first_response_hours" id="esla-fr" class="form-control" min="0.25" step="0.25">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 11px;">Resolution <span style="color:#94a3b8">(hours)</span></label>
+            <input type="number" name="resolution_hours" id="esla-res" class="form-control" min="1" step="0.5">
+          </div>
+        </div>
+        <div style="display: flex; gap: 20px;">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+            <input type="checkbox" name="business_hours_only" id="esla-biz" value="1" style="width: 15px; height: 15px; accent-color: #7c3aed;">
+            Business hours only
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+            <input type="checkbox" name="is_active" id="esla-active" value="1" style="width: 15px; height: 15px; accent-color: #7c3aed;">
+            Active
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-modal-close" data-modal="edit-sla-modal">Cancel</button>
+        <button type="button" id="esla-save-btn" class="btn btn-primary" style="background: #7c3aed; border-color: #7c3aed;">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Quick Setup Modal ── -->
+<div class="modal-overlay" id="quick-setup-modal">
+  <div class="modal" style="max-width: 560px;">
+    <div class="modal-header">
+      <div>
+        <h3 class="modal-title">⚡ Quick Setup</h3>
+        <p style="font-size: 12px; color: #94a3b8; margin: 2px 0 0 0;">Create all 4 priority policies at once using a preset template</p>
+      </div>
+      <button class="modal-close btn-modal-close" data-modal="quick-setup-modal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form method="POST" action="{{ url_for('helpdesk.sla_quick_setup') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="category_id" id="qs-cat-id" value="">
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+
+        <div class="form-group">
+          <label class="form-label">Apply to Category</label>
+          <select name="category_id_visible" id="qs-cat-sel" class="form-control">
+            <option value="">🌐 Global Default (all categories)</option>
+            {% for c in categories %}
+            <option value="{{ c.id }}">{{ c.icon or '📁' }} {{ c.name }}</option>
+            {% endfor %}
+          </select>
+          <div id="qs-label" style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Existing policies for this category will be skipped (not overwritten)</div>
+        </div>
+
+        <!-- Template picker -->
+        <div>
+          <label class="form-label" style="margin-bottom: 10px;">Choose Template</label>
+          <div style="display: grid; grid-template-columns: repeat(3,1fr); gap: 10px;">
+            {% set templates = [
+              ('strict','🔴 Strict','Aggressive SLAs for high-demand teams',[('Critical','30m','2h'),('High','1h','4h'),('Medium','4h','8h'),('Low','8h','24h')]),
+              ('standard','🟡 Standard','Balanced defaults for most teams',[('Critical','1h','4h'),('High','4h','8h'),('Medium','8h','24h'),('Low','24h','3d')]),
+              ('relaxed','🟢 Relaxed','Lenient targets for internal/low-vol',[('Critical','2h','8h'),('High','8h','24h'),('Medium','24h','3d'),('Low','3d','7d')]),
+            ] %}
+            {% for tval, tlabel, tdesc, ttiers in templates %}
+            <label style="display: block; cursor: pointer;">
+              <input type="radio" name="template" value="{{ tval }}" {% if tval == 'standard' %}checked{% endif %} style="display: none;" class="qs-radio">
+              <div class="qs-card" data-val="{{ tval }}" style="border: 2px solid {{ '#7c3aed' if tval == 'standard' else '#e2e8f0' }}; border-radius: 10px; padding: 12px; transition: all 0.15s; background: {{ '#faf5ff' if tval == 'standard' else 'white' }};">
+                <div style="font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">{{ tlabel }}</div>
+                <div style="font-size: 11px; color: #64748b; margin-bottom: 10px;">{{ tdesc }}</div>
+                {% for plevel, pfr, pres in ttiers %}
+                <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; border-bottom: 1px solid #f1f5f9;">
+                  <span style="color: #475569; font-weight: 500;">{{ plevel }}</span>
+                  <span style="color: #64748b; font-family: monospace;">{{ pfr }} · {{ pres }}</span>
+                </div>
+                {% endfor %}
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+          <input type="checkbox" name="business_hours_only" value="1" checked style="width: 15px; height: 15px; accent-color: #7c3aed;">
+          Business hours only <span style="font-size: 11px; color: #94a3b8;">(Mon–Fri, 9am–6pm)</span>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-modal-close" data-modal="quick-setup-modal">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="background: #7c3aed; border-color: #7c3aed;">
+          ⚡ Apply Template
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ g.csp_nonce }}">
+let editSLAId = null;
+
+/* ── Add modal ── */
+function openAddModal(catId, priority) {
+  document.getElementById('asla-cat').value = catId || '';
+  document.getElementById('asla-priority').value = priority || 'medium';
+  document.getElementById('asla-fr').value = priority === 'critical' ? 1 : priority === 'high' ? 4 : priority === 'medium' ? 8 : 24;
+  document.getElementById('asla-res').value = priority === 'critical' ? 4 : priority === 'high' ? 8 : priority === 'medium' ? 24 : 72;
+  updateAddName();
+  openModal('add-sla-modal');
+}
+
+function updateAddName() {
+  const catSel = document.getElementById('asla-cat');
+  const catLabel = catSel.options[catSel.selectedIndex].text.trim().replace(/^[^\w]*/, '').trim();
+  const priority = document.getElementById('asla-priority').value;
+  const cat = catSel.value ? catLabel : 'Global';
+  document.getElementById('asla-name').value = cat + ' – ' + priority.charAt(0).toUpperCase() + priority.slice(1);
+}
+
+function applyPreset(vals) {
+  const [fr, res] = vals.split(',');
+  document.getElementById('asla-fr').value = fr;
+  document.getElementById('asla-res').value = res;
+}
+
+/* ── Edit modal ── */
+function openEditModal(id, data) {
+  editSLAId = id;
+  document.getElementById('esla-name').value = data.name || '';
+  document.getElementById('esla-cat').value = data.category_id || '';
+  document.getElementById('esla-priority').value = data.priority || 'medium';
+  document.getElementById('esla-fr').value = data.first_response_hours || 8;
+  document.getElementById('esla-res').value = data.resolution_hours || 48;
+  document.getElementById('esla-biz').checked = data.business_hours_only !== false;
+  document.getElementById('esla-active').checked = data.is_active !== false;
+  document.getElementById('esla-subtitle').textContent = 'ID #' + id;
+  openModal('edit-sla-modal');
+}
+
+function submitSLAEdit() {
+  if (!editSLAId) return;
+  const form = document.getElementById('edit-sla-form');
+  const fd = new FormData(form);
+  if (!document.getElementById('esla-biz').checked) fd.delete('business_hours_only');
+  if (!document.getElementById('esla-active').checked) fd.delete('is_active');
+  fetch('/helpdesk/admin/sla/' + editSLAId + '/edit', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content },
+    body: fd
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { closeModal('edit-sla-modal'); location.reload(); }
+    else alert(d.error || 'Error saving');
+  });
+}
+
+function deleteSLAFromEdit() {
+  if (!editSLAId) return;
+  if (!confirm('Delete this SLA policy?')) return;
+  fetch('/helpdesk/admin/sla/' + editSLAId + '/delete', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content }
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { closeModal('edit-sla-modal'); location.reload(); }
+    else alert(d.error || 'Error deleting');
+  });
+}
+
+/* ── Quick setup ── */
+function openQuickSetup(catId, catName) {
+  document.getElementById('qs-cat-id').value = catId || '';
+  const sel = document.getElementById('qs-cat-sel');
+  if (catId) {
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value == catId) { sel.selectedIndex = i; break; }
+    }
+  } else {
+    sel.selectedIndex = 0;
+  }
+  updateQSLabel();
+  openModal('quick-setup-modal');
+}
+
+function updateQSLabel() {
+  const sel = document.getElementById('qs-cat-sel');
+  const label = document.getElementById('qs-label');
+  const catName = sel.value ? sel.options[sel.selectedIndex].text.trim() : 'Global Default';
+  label.textContent = 'Existing policies for "' + catName + '" will be skipped, not overwritten.';
+}
+
+function highlightTemplate() {
+  document.querySelectorAll('.qs-card').forEach(function(card) {
+    const radio = document.querySelector('input[value="' + card.dataset.val + '"]');
+    if (radio && radio.checked) {
+      card.style.borderColor = '#7c3aed';
+      card.style.background = '#faf5ff';
+    } else {
+      card.style.borderColor = '#e2e8f0';
+      card.style.background = 'white';
+    }
+  });
+}
+
+// ── Wire up all event listeners ──
+document.addEventListener('DOMContentLoaded', function() {
+
+  // Header buttons
+  document.getElementById('btn-quick-setup').addEventListener('click', function() {
+    openQuickSetup(null, 'Global Default');
+  });
+  document.getElementById('btn-add-sla').addEventListener('click', function() {
+    openAddModal(null, null);
+  });
+
+  // Close modal buttons
+  document.querySelectorAll('.btn-modal-close').forEach(function(btn) {
+    btn.addEventListener('click', function(e) { e.stopPropagation(); closeModal(btn.dataset.modal); });
+  });
+
+  // Edit modal buttons
+  document.getElementById('esla-save-btn').addEventListener('click', submitSLAEdit);
+  document.getElementById('esla-delete-btn').addEventListener('click', deleteSLAFromEdit);
+
+  // SLA cell click → edit
+  document.addEventListener('click', function(e) {
+    var cell = e.target.closest('.sla-cell-set');
+    if (cell) {
+      var data = JSON.parse(cell.dataset.pol);
+      openEditModal(parseInt(cell.dataset.id), data);
+    }
+  });
+
+  // SLA cell hover effects
+  document.addEventListener('mouseover', function(e) {
+    var cell = e.target.closest('.sla-cell-set');
+    if (cell) {
+      cell.style.borderColor = cell.dataset.fg;
+      cell.style.boxShadow = '0 2px 8px ' + cell.dataset.fg + '22';
+    }
+  });
+  document.addEventListener('mouseout', function(e) {
+    var cell = e.target.closest('.sla-cell-set');
+    if (cell && !cell.contains(e.relatedTarget)) {
+      cell.style.borderColor = '#e2e8f0';
+      cell.style.boxShadow = '';
+    }
+  });
+
+  // Empty cell "add" buttons
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-sla-add-cell');
+    if (btn) {
+      var catId = btn.dataset.cat || null;
+      var priority = btn.dataset.priority;
+      openAddModal(catId, priority);
+    }
+  });
+
+  // Empty cell hover effects
+  document.addEventListener('mouseover', function(e) {
+    var btn = e.target.closest('.btn-sla-add-cell');
+    if (btn) {
+      btn.style.borderColor = btn.dataset.fg;
+      btn.style.color = btn.dataset.fg;
+      btn.style.background = btn.dataset.bg;
+    }
+  });
+  document.addEventListener('mouseout', function(e) {
+    var btn = e.target.closest('.btn-sla-add-cell');
+    if (btn && !btn.contains(e.relatedTarget)) {
+      btn.style.borderColor = '#d1d5db';
+      btn.style.color = '#94a3b8';
+      btn.style.background = 'transparent';
+    }
+  });
+
+  // Quick row buttons
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-quick-row');
+    if (btn) {
+      var catId = btn.dataset.cat || null;
+      var catName = btn.dataset.catName;
+      openQuickSetup(catId, catName);
+    }
+  });
+
+  // Preset buttons in add modal
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-preset-sla');
+    if (btn) applyPreset(btn.dataset.vals);
+  });
+
+  // Auto-name when category or priority changes
+  document.getElementById('asla-cat').addEventListener('change', updateAddName);
+  document.getElementById('asla-priority').addEventListener('change', updateAddName);
+
+  // QS category select
+  document.getElementById('qs-cat-sel').addEventListener('change', function() {
+    document.getElementById('qs-cat-id').value = this.value;
+    updateQSLabel();
+  });
+
+  // Template radio highlight
+  document.querySelectorAll('.qs-radio').forEach(function(radio) {
+    radio.addEventListener('change', highlightTemplate);
+  });
+});
+</script>
+{% endblock %}

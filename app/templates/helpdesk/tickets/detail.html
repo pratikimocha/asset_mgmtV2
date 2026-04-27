@@ -1,0 +1,646 @@
+{% extends "base.html" %}
+{% block title %}{{ ticket.number }} — {{ ticket.title[:50] }}{% endblock %}
+{% block content %}
+
+{% set sbg, sfg = ticket.status_colors %}
+{% set pbg, pfg = ticket.priority_colors %}
+
+<!-- Header -->
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
+  <div style="flex: 1; min-width: 0;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap;">
+      <a href="{{ url_for('helpdesk.ticket_queue') }}" style="font-size: 12px; color: #7c3aed; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Queue
+      </a>
+      <span style="color: #e2e8f0; font-size: 12px;">›</span>
+      <span style="font-size: 12px; font-weight: 700; color: #7c3aed;">{{ ticket.number }}</span>
+      <span style="font-size: 11px; background: {{ sbg }}; color: {{ sfg }}; padding: 2px 10px; border-radius: 10px; font-weight: 600;">{{ ticket.status.replace('_',' ').title() }}</span>
+      <span style="font-size: 11px; background: {{ pbg }}; color: {{ pfg }}; padding: 2px 10px; border-radius: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">{{ ticket.priority }}</span>
+    </div>
+    <h1 style="font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.3;">{{ ticket.title }}</h1>
+  </div>
+  <!-- Quick action buttons -->
+  <div style="display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap;">
+    {% if ticket.status not in ('solved','closed') %}
+    <form method="POST" action="{{ url_for('helpdesk.ticket_update', number=ticket.number) }}" style="display:inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="field" value="status">
+      <input type="hidden" name="value" value="solved">
+      <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669;">✓ Mark Solved</button>
+    </form>
+    {% endif %}
+    {% if ticket.status == 'solved' %}
+    <form method="POST" action="{{ url_for('helpdesk.ticket_update', number=ticket.number) }}" style="display:inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="field" value="status">
+      <input type="hidden" name="value" value="closed">
+      <button type="submit" class="btn btn-secondary">Close Ticket</button>
+    </form>
+    {% endif %}
+    {% if ticket.status in ('solved','closed') %}
+    <form method="POST" action="{{ url_for('helpdesk.ticket_update', number=ticket.number) }}" style="display:inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="field" value="status">
+      <input type="hidden" name="value" value="open">
+      <button type="submit" class="btn btn-secondary">Reopen</button>
+    </form>
+    {% endif %}
+    {% if agent.role in ('admin', 'manager') %}
+    <form id="delete-ticket-form" method="POST" action="{{ url_for('helpdesk.ticket_delete', number=ticket.number) }}" style="display:inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-secondary" style="color:#ef4444;border-color:#fecaca;">Delete</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Flash messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for cat, msg in messages %}
+<div style="margin-bottom: 14px; padding: 11px 16px; border-radius: 8px; background: {{ '#d1fae5' if cat == 'success' else '#fee2e2' }}; color: {{ '#065f46' if cat == 'success' else '#991b1b' }}; font-size: 13px;">{{ msg }}</div>
+{% endfor %}
+{% endwith %}
+
+<!-- Two-column layout -->
+<div style="display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start;">
+
+  <!-- ── Left: Conversation thread ── -->
+  <div>
+    <div class="card" style="padding: 0; overflow: hidden;">
+
+      <!-- Thread -->
+      <div id="thread" style="padding: 0;">
+
+        <!-- Original description — always shown first -->
+        {% if ticket.description %}
+        <div style="padding: 18px 24px; border-bottom: 1px solid #f1f5f9; background: #f8fafc;">
+          <div style="display: flex; align-items: flex-start; gap: 12px;">
+            <div style="width: 34px; height: 34px; border-radius: 50%; background: #3b82f6; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0;">
+              {{ ticket.requester_name[:1].upper() }}
+            </div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+                <span style="font-weight: 600; font-size: 13px; color: #0f172a;">{{ ticket.requester_name }}</span>
+                <span style="font-size: 11px; background: #eff6ff; color: #2563eb; padding: 1px 7px; border-radius: 8px; font-weight: 600;">Requester</span>
+                <span style="margin-left: auto; font-size: 11px; color: #94a3b8; white-space: nowrap;">{{ ticket.created_at | localtime }}</span>
+              </div>
+              <div style="font-size: 13px; color: #334155; line-height: 1.65; white-space: pre-wrap; word-break: break-word;">{{ ticket.description }}</div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Comments / replies -->
+        {% for c in ticket.comments %}
+        {% if c.author_type == 'system' %}
+        <!-- System event -->
+        <div style="padding: 10px 24px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f8fafc;">
+          <div style="width: 1px; height: 16px; background: #e2e8f0;"></div>
+          <span style="font-size: 12px; color: #94a3b8; font-style: italic;">{{ c.body }}</span>
+          <span style="margin-left: auto; font-size: 11px; color: #cbd5e1; white-space: nowrap;">{{ c.created_at | localtime('%d %b %H:%M') }}</span>
+        </div>
+        {% else %}
+        <!-- Agent or requester comment -->
+        <div style="padding: 18px 24px; border-bottom: 1px solid #f1f5f9; {% if c.is_internal %}background: #fffbeb;{% elif c.author_type == 'requester' %}background: #f8fafc;{% endif %}">
+          <div style="display: flex; align-items: flex-start; gap: 12px;">
+            <div style="width: 34px; height: 34px; border-radius: 50%; background: {% if c.author_type == 'agent' %}#7c3aed{% elif c.author_type == 'requester' %}#3b82f6{% else %}#94a3b8{% endif %}; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0;">
+              {{ c.author_name[:1].upper() }}
+            </div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+                <span style="font-weight: 600; font-size: 13px; color: #0f172a;">{{ c.author_name }}</span>
+                <span style="font-size: 11px; background: {% if c.author_type == 'agent' %}#ede9fe{% elif c.author_type == 'requester' %}#eff6ff{% else %}#f1f5f9{% endif %}; color: {% if c.author_type == 'agent' %}#7c3aed{% elif c.author_type == 'requester' %}#2563eb{% else %}#64748b{% endif %}; padding: 1px 7px; border-radius: 8px; font-weight: 600;">{{ c.author_type.title() }}</span>
+                {% if c.is_internal %}
+                <span style="font-size: 11px; background: #fef3c7; color: #92400e; padding: 1px 7px; border-radius: 8px; font-weight: 600;">Internal Note</span>
+                {% endif %}
+                <span style="margin-left: auto; font-size: 11px; color: #94a3b8; white-space: nowrap;">{{ c.created_at | localtime }}</span>
+              </div>
+              <div style="font-size: 13px; color: #334155; line-height: 1.65; white-space: pre-wrap; word-break: break-word;">{{ c.body }}</div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+
+      </div>
+      <div id="thread-bottom"></div>
+
+      <!-- Reply box -->
+      {% if ticket.status not in ('closed',) %}
+      <div style="padding: 20px 24px; background: #fafafa; border-top: 1px solid #e2e8f0;">
+        <form method="POST" action="{{ url_for('helpdesk.ticket_reply', number=ticket.number) }}" id="reply-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="is_internal" id="is_internal_field" value="0">
+
+          <!-- Reply type toggle -->
+          <div style="display: flex; gap: 0; margin-bottom: 12px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; width: fit-content;">
+            <button type="button" id="tab-reply"
+              style="padding: 7px 16px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; background: #7c3aed; color: #fff; transition: all 0.15s;">
+              💬 Reply
+            </button>
+            <button type="button" id="tab-note"
+              style="padding: 7px 16px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; background: #fff; color: #94a3b8; transition: all 0.15s;">
+              🔒 Internal Note
+            </button>
+          </div>
+
+          <div id="reply-hint" style="font-size: 12px; color: #94a3b8; margin-bottom: 8px;">Visible to requester</div>
+
+          <!-- Canned response autocomplete dropdown -->
+          <div style="position:relative;">
+            <textarea name="body" id="reply-body" rows="5" placeholder="Type your reply… or /shortcut for canned responses"
+              style="width: 100%; padding: 12px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-family: inherit; resize: vertical; outline: none; transition: border-color 0.2s; box-sizing: border-box;"
+              onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+            <div id="canned-dropdown" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:200;max-height:240px;overflow-y:auto;"></div>
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center;">
+            <button type="submit" name="submit_as" value="{{ ticket.status }}" class="btn btn-primary" style="background: #7c3aed; border-color: #7c3aed;">
+              Submit as {{ ticket.status.replace('_', ' ').title() }}
+            </button>
+            {% if ticket.status != 'pending' %}
+            <button type="submit" name="submit_as" value="pending" class="btn btn-secondary">Submit as Pending</button>
+            {% endif %}
+            {% if ticket.status not in ('solved','closed') %}
+            <button type="submit" name="submit_as" value="solved" class="btn btn-secondary" style="color: #059669; border-color: #6ee7b7;">Submit as Solved</button>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+      {% else %}
+      <div style="padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center;">
+        <span style="font-size: 13px; color: #94a3b8;">This ticket is closed. </span>
+        <form method="POST" action="{{ url_for('helpdesk.ticket_update', number=ticket.number) }}" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="field" value="status">
+          <input type="hidden" name="value" value="open">
+          <button type="submit" style="background: none; border: none; color: #7c3aed; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: underline;">Reopen ticket</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Right: Properties panel ── -->
+  <div style="display: flex; flex-direction: column; gap: 14px;">
+
+    <!-- Status & Priority (editable) -->
+    <div class="card" style="padding: 16px;">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #94a3b8; margin-bottom: 12px;">Ticket Details</div>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+
+        <!-- Status -->
+        <div>
+          <div style="font-size: 11px; color: #64748b; font-weight: 500; margin-bottom: 4px;">Status</div>
+          <select id="status-select"
+            style="width: 100%; padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 7px; font-size: 12px; font-family: inherit; background: {{ sbg }}; color: {{ sfg }}; font-weight: 600; cursor: pointer;">
+            {% for s in ['new','open','pending','on_hold','solved','closed'] %}
+            <option value="{{ s }}" {% if ticket.status == s %}selected{% endif %}>{{ s.replace('_',' ').title() }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Priority -->
+        <div>
+          <div style="font-size: 11px; color: #64748b; font-weight: 500; margin-bottom: 4px;">Priority</div>
+          <select id="priority-select"
+            style="width: 100%; padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 7px; font-size: 12px; font-family: inherit; cursor: pointer; background: {{ pbg }}; color: {{ pfg }}; font-weight: 700;">
+            {% for p in ['low','medium','high','critical'] %}
+            <option value="{{ p }}" {% if ticket.priority == p %}selected{% endif %}>{{ p.title() }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Category -->
+        <div>
+          <div style="font-size: 11px; color: #64748b; font-weight: 500; margin-bottom: 4px;">Category</div>
+          <select id="detail-cat-sel"
+            style="width: 100%; padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 7px; font-size: 12px; font-family: inherit; cursor: pointer;">
+            <option value="">None</option>
+            {% for c in categories if c.parent_id is none %}
+            <option value="{{ c.id }}" {% if ticket.category_id == c.id %}selected{% endif %}>{{ c.icon + ' ' if c.icon else '' }}{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <!-- Sub-category -->
+        <div id="detail-subcat-group" style="display:none;">
+          <div style="font-size: 11px; color: #64748b; font-weight: 500; margin-bottom: 4px;">Sub-category</div>
+          <select id="detail-subcat-sel"
+            style="width: 100%; padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 7px; font-size: 12px; font-family: inherit; cursor: pointer;">
+            <option value="">None</option>
+          </select>
+        </div>
+
+        <!-- Assigned to -->
+        <div>
+          <div style="font-size: 11px; color: #64748b; font-weight: 500; margin-bottom: 4px;">Assigned To</div>
+          <div style="display: flex; gap: 6px;">
+            <input type="text" id="assigned-input" value="{{ ticket.assigned_to or '' }}" placeholder="Agent name"
+              style="flex: 1; padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 7px; font-size: 12px; font-family: inherit; outline: none;">
+            <button id="assign-btn" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; white-space: nowrap;">Assign</button>
+          </div>
+          <button id="assign-me-btn" style="background:none; border:none; font-size: 11px; color: #7c3aed; cursor: pointer; margin-top: 4px; padding: 0; font-weight: 500;">Assign to me →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Requester -->
+    <div class="card" style="padding: 16px;">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #94a3b8; margin-bottom: 12px;">Requester</div>
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: #3b82f6; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0;">
+          {{ ticket.requester_name[:1].upper() }}
+        </div>
+        <div>
+          <div style="font-size: 13px; font-weight: 600; color: #0f172a;">{{ ticket.requester_name }}</div>
+          <div style="font-size: 11px; color: #64748b;">{{ ticket.requester_email }}</div>
+        </div>
+      </div>
+      {% if ticket.requester_phone %}
+      <div style="font-size: 12px; color: #64748b;">📱 {{ ticket.requester_phone }}</div>
+      {% endif %}
+      <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">Via {{ ticket.source.title() }} · {{ ticket.created_at | localtime }}</div>
+    </div>
+
+    <!-- SLA -->
+    {% if ticket.resolution_due or sla_fr %}
+    <div class="card" style="padding: 16px; {% if ticket.sla_state == 'breached' %}background: #fef2f2; border-color: #fecaca;{% elif ticket.sla_state == 'warning' %}background: #fff7ed; border-color: #fed7aa;{% endif %}">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #94a3b8; margin-bottom: 12px;">SLA</div>
+      {% if sla_fr %}
+      <div style="margin-bottom: 8px;">
+        <div style="font-size: 11px; color: #64748b; margin-bottom: 3px;">First Response</div>
+        {% if ticket.first_responded_at %}
+        <div style="font-size: 12px; color: #16a34a; font-weight: 600;">✓ Met {{ ticket.first_responded_at | localtime('%d %b %H:%M') }}</div>
+        {% else %}
+        <div style="font-size: 12px; font-weight: 600; color: {% if sla_fr.state == 'breached' %}#dc2626{% elif sla_fr.state == 'warning' %}#ea580c{% else %}#0f172a{% endif %};">
+          {{ sla_fr.text }}
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if ticket.resolution_due and sla_res %}
+      <div>
+        <div style="font-size: 11px; color: #64748b; margin-bottom: 3px;">Resolution</div>
+        <div style="font-size: 12px; font-weight: 600; color: {% if sla_res.state == 'breached' %}#dc2626{% elif sla_res.state == 'warning' %}#ea580c{% elif sla_res.state == 'met' %}#16a34a{% else %}#0f172a{% endif %};">
+          {% if sla_res.state == 'met' %}✓ Met{% else %}{{ sla_res.text }}{% endif %}
+        </div>
+        <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">Due {{ ticket.resolution_due | localtime }}</div>
+      </div>
+      {% endif %}
+      {% if ticket.sla_policy %}
+      <div style="font-size: 10px; color: #94a3b8; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f1f5f9;">Policy: {{ ticket.sla_policy.name }}</div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Linked Asset -->
+    <div class="card" style="padding: 16px;">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #94a3b8; margin-bottom: 10px;">Linked Asset</div>
+      {% if ticket.asset %}
+      <div style="background: #f8fafc; border-radius: 8px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-size: 13px; font-weight: 600; color: #0f172a;">{{ ticket.asset.model or 'Unknown Model' }}</div>
+          <div style="font-size: 11px; color: #64748b;">{{ ticket.asset.serial_number }}</div>
+        </div>
+        <div style="display: flex; gap: 4px;">
+          <a href="{{ url_for('assets.detail', asset_id=ticket.asset.id) }}" style="font-size: 11px; color: #7c3aed; font-weight: 500; text-decoration: none;">View →</a>
+          <button id="remove-asset-btn" style="background:none;border:none;font-size:11px;color:#ef4444;cursor:pointer;padding:0;margin-left:8px;">Remove</button>
+        </div>
+      </div>
+      {% endif %}
+      <!-- Asset live search -->
+      <div style="position: relative;">
+        <input type="text" id="asset-search-input" placeholder="Search serial, model, or user..."
+          style="width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 7px; font-size: 12px; font-family: inherit; outline: none;">
+        <div id="asset-search-dropdown" style="display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 7px; box-shadow: 0 4px 16px rgba(0,0,0,0.10); z-index: 100; max-height: 220px; overflow-y: auto;"></div>
+      </div>
+    </div>
+
+    <!-- Attachments -->
+    <div class="card" style="padding: 16px;">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #94a3b8; margin-bottom: 10px;">Attachments</div>
+      <div id="attach-list">
+        {% for a in ticket.attachments.all() %}
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9;" id="att-{{ a.id }}">
+          <span style="font-size:18px;">{{ a.icon }}</span>
+          <div style="flex:1;min-width:0;">
+            <a href="{{ url_for('helpdesk.ticket_download', number=ticket.number, att_id=a.id) }}"
+               style="font-size:12px;font-weight:600;color:#0f172a;text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+               download>{{ a.original_filename }}</a>
+            <span style="font-size:11px;color:#94a3b8;">{{ a.size_label }} · {{ a.uploaded_by }}</span>
+          </div>
+        </div>
+        {% else %}
+        <div id="no-attachments" style="font-size:12px;color:#94a3b8;text-align:center;padding:8px 0;">No attachments</div>
+        {% endfor %}
+      </div>
+      <!-- Upload -->
+      <label style="display:flex;align-items:center;gap:6px;margin-top:10px;cursor:pointer;font-size:12px;color:#7c3aed;font-weight:500;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Attach file
+        <input type="file" id="attach-input" style="display:none;">
+      </label>
+      <div id="attach-status" style="font-size:11px;color:#64748b;margin-top:4px;display:none;"></div>
+    </div>
+
+    <!-- Tags -->
+    <div class="card" style="padding: 16px;">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #94a3b8; margin-bottom: 10px;">Tags</div>
+      {% if ticket.tag_list %}
+      <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px;">
+        {% for tag in ticket.tag_list %}
+        <span style="font-size: 11px; background: #ede9fe; color: #7c3aed; padding: 2px 8px; border-radius: 6px; font-weight: 500;">{{ tag }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div style="display: flex; gap: 6px;">
+        <input type="text" id="tags-input" value="{{ ticket.tags or '' }}" placeholder="tag1, tag2, tag3"
+          style="flex: 1; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 7px; font-size: 12px; font-family: inherit; outline: none;">
+        <button id="tags-save-btn" class="btn btn-secondary" style="padding: 5px 10px; font-size: 11px;">Save</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ g.csp_nonce }}">
+// Delete ticket confirmation
+var deleteForm = document.getElementById('delete-ticket-form');
+if (deleteForm) {
+  deleteForm.addEventListener('submit', function(e) {
+    if (!confirm('Delete ticket {{ ticket.number }}? This cannot be undone.')) {
+      e.preventDefault();
+    }
+  });
+}
+
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+const updateUrl = '{{ url_for("helpdesk.ticket_update", number=ticket.number) }}';
+const CATS_TREE = {{ categories_json|safe }};
+
+function updateDetailSubcats(catId) {
+  const group = document.getElementById('detail-subcat-group');
+  const sel = document.getElementById('detail-subcat-sel');
+  const cat = CATS_TREE.find(c => c.id == catId);
+  sel.innerHTML = '<option value="">None</option>';
+  if (cat && cat.children.length) {
+    cat.children.forEach(ch => {
+      const o = document.createElement('option');
+      o.value = ch.id; o.textContent = (ch.icon ? ch.icon + ' ' : '') + ch.name;
+      if (ch.id == {{ ticket.subcategory_id or 'null' }}) o.selected = true;
+      sel.appendChild(o);
+    });
+    group.style.display = 'block';
+  } else {
+    group.style.display = 'none';
+  }
+}
+// Init sub-category on page load
+updateDetailSubcats(document.getElementById('detail-cat-sel').value);
+
+function updateField(field, value, email) {
+  const fd = new FormData();
+  fd.append('field', field);
+  fd.append('value', value);
+  if (email) fd.append('email', email);
+  fetch(updateUrl, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': CSRF },
+    body: fd,
+  }).then(r => r.json()).then(d => {
+    if (d.ok) location.reload();
+    else alert('Update failed');
+  });
+}
+
+// Wire up sidebar controls (replaces inline onclick/onchange)
+document.getElementById('status-select').addEventListener('change', function() {
+  updateField('status', this.value);
+});
+document.getElementById('priority-select').addEventListener('change', function() {
+  updateField('priority', this.value);
+});
+document.getElementById('detail-cat-sel').addEventListener('change', function() {
+  updateField('category_id', this.value);
+  updateDetailSubcats(this.value);
+});
+document.getElementById('detail-subcat-sel').addEventListener('change', function() {
+  updateField('subcategory_id', this.value);
+});
+document.getElementById('assign-btn').addEventListener('click', function() {
+  const name = document.getElementById('assigned-input').value.trim();
+  updateField('assigned_to', name);
+});
+document.getElementById('assigned-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    updateField('assigned_to', this.value.trim());
+  }
+});
+document.getElementById('assign-me-btn').addEventListener('click', function() {
+  updateField('assigned_to', '{{ agent.name }}', '{{ agent.email }}');
+});
+document.getElementById('tags-save-btn').addEventListener('click', function() {
+  updateField('tags', document.getElementById('tags-input').value);
+});
+document.getElementById('tags-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') updateField('tags', this.value);
+});
+const removeAssetBtn = document.getElementById('remove-asset-btn');
+if (removeAssetBtn) {
+  removeAssetBtn.addEventListener('click', function() { updateField('asset_id', ''); });
+}
+// Live asset search
+(function() {
+  const searchInput = document.getElementById('asset-search-input');
+  const dropdown = document.getElementById('asset-search-dropdown');
+  let searchTimer = null;
+
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    const q = this.value.trim();
+    if (q.length < 2) { dropdown.style.display = 'none'; return; }
+    searchTimer = setTimeout(function() {
+      fetch('/api/search?q=' + encodeURIComponent(q), {
+        headers: { 'X-CSRFToken': CSRF }
+      }).then(r => r.json()).then(function(results) {
+        dropdown.innerHTML = '';
+        if (!results.length) {
+          dropdown.innerHTML = '<div style="padding: 8px 12px; font-size: 12px; color: #94a3b8;">No assets found</div>';
+          dropdown.style.display = 'block';
+          return;
+        }
+        results.forEach(function(a) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.style.cssText = 'width:100%;text-align:left;padding:8px 12px;background:#fff;border:none;border-bottom:1px solid #f1f5f9;cursor:pointer;font-family:inherit;';
+          btn.innerHTML = '<div style="font-size:12px;font-weight:600;color:#0f172a;">' + (a.serial_number || '') + '</div>' +
+            '<div style="font-size:11px;color:#64748b;">' + (a.model || '') + (a.manufacturer ? ' · ' + a.manufacturer : '') + ' — ' + (a.status || '') + (a.current_user ? ' · ' + a.current_user : '') + '</div>';
+          btn.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            updateField('asset_id', String(a.id));
+          });
+          btn.addEventListener('mouseover', function() { this.style.background = '#f8fafc'; });
+          btn.addEventListener('mouseout', function() { this.style.background = '#fff'; });
+          dropdown.appendChild(btn);
+        });
+        dropdown.style.display = 'block';
+      }).catch(function() { dropdown.style.display = 'none'; });
+    }, 250);
+  });
+
+  searchInput.addEventListener('blur', function() {
+    setTimeout(function() { dropdown.style.display = 'none'; }, 150);
+  });
+  searchInput.addEventListener('focus', function() {
+    if (dropdown.children.length) dropdown.style.display = 'block';
+  });
+})();
+
+// Reply type toggle (replaces onclick="setReplyType(...)")
+function setReplyType(isInternal) {
+  document.getElementById('is_internal_field').value = isInternal ? '1' : '0';
+  const btnReply = document.getElementById('tab-reply');
+  const btnNote = document.getElementById('tab-note');
+  const hint = document.getElementById('reply-hint');
+  const body = document.getElementById('reply-body');
+  if (isInternal) {
+    btnNote.style.background = '#92400e'; btnNote.style.color = '#fff';
+    btnReply.style.background = '#fff'; btnReply.style.color = '#94a3b8';
+    hint.textContent = '🔒 Only visible to agents (internal note)';
+    body.style.background = '#fffbeb';
+    body.placeholder = 'Internal note — not visible to requester...';
+  } else {
+    btnReply.style.background = '#7c3aed'; btnReply.style.color = '#fff';
+    btnNote.style.background = '#fff'; btnNote.style.color = '#94a3b8';
+    hint.textContent = 'Visible to requester';
+    body.style.background = '';
+    body.placeholder = 'Type your reply… or /shortcut for canned responses';
+  }
+}
+document.getElementById('tab-reply').addEventListener('click', function() { setReplyType(false); });
+document.getElementById('tab-note').addEventListener('click', function() { setReplyType(true); });
+
+// ── Canned response / shortcut autocomplete ──────────────────────────────────
+const replyBody = document.getElementById('reply-body');
+const cannedDrop = document.getElementById('canned-dropdown');
+let cannedTimer = null;
+
+replyBody.addEventListener('input', function() {
+  clearTimeout(cannedTimer);
+  const val = this.value;
+  const slashIdx = val.lastIndexOf('/');
+  if (slashIdx === -1 || (slashIdx > 0 && val[slashIdx - 1] !== '\n' && val[slashIdx - 1] !== ' ')) {
+    closeCannedDrop(); return;
+  }
+  const after = val.slice(slashIdx + 1);
+  if (/\s/.test(after) && after.length > 1) { closeCannedDrop(); return; }
+  cannedTimer = setTimeout(() => fetchCanned(after, slashIdx), 200);
+});
+
+replyBody.addEventListener('keydown', function(e) {
+  if (cannedDrop.style.display === 'none') return;
+  const items = cannedDrop.querySelectorAll('[data-idx]');
+  const active = cannedDrop.querySelector('.canned-active');
+  let idx = active ? parseInt(active.dataset.idx) : -1;
+  if (e.key === 'ArrowDown') { e.preventDefault(); setActive(items, Math.min(idx + 1, items.length - 1)); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(items, Math.max(idx - 1, 0)); }
+  else if (e.key === 'Enter' || e.key === 'Tab') {
+    const a = cannedDrop.querySelector('.canned-active');
+    if (a) { e.preventDefault(); applyCanned(a.dataset.body, a.dataset.slashIdx); }
+  } else if (e.key === 'Escape') { closeCannedDrop(); }
+});
+
+document.addEventListener('click', function(e) {
+  if (!cannedDrop.contains(e.target) && e.target !== replyBody) closeCannedDrop();
+});
+
+function setActive(items, idx) {
+  items.forEach(el => el.classList.remove('canned-active'));
+  if (items[idx]) {
+    items[idx].classList.add('canned-active');
+    items[idx].style.background = '#ede9fe';
+    items[idx].scrollIntoView({ block: 'nearest' });
+  }
+}
+
+function fetchCanned(q, slashIdx) {
+  fetch('/helpdesk/canned/search?q=' + encodeURIComponent(q))
+    .then(r => r.json()).then(results => {
+      if (!results.length) { closeCannedDrop(); return; }
+      cannedDrop.innerHTML = '';
+      results.forEach((item, i) => {
+        const div = document.createElement('div');
+        div.dataset.idx = i;
+        div.dataset.body = item.body;
+        div.dataset.slashIdx = slashIdx;
+        div.style.cssText = 'padding:8px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background .1s;';
+        div.innerHTML = '<div style="display:flex;align-items:center;gap:8px;">'
+          + (item.shortcut ? '<code style="font-size:11px;background:#ede9fe;color:#7c3aed;padding:1px 6px;border-radius:4px;">/' + item.shortcut + '</code>' : '')
+          + '<span style="font-size:13px;font-weight:600;color:#0f172a;">' + item.name + '</span></div>'
+          + '<div style="font-size:11px;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + item.body.slice(0, 80) + (item.body.length > 80 ? '…' : '') + '</div>';
+        div.addEventListener('mouseenter', () => {
+          div.style.background = '#ede9fe'; div.classList.add('canned-active');
+          cannedDrop.querySelectorAll('[data-idx]').forEach(el => { if (el !== div) { el.classList.remove('canned-active'); el.style.background = ''; } });
+        });
+        div.addEventListener('mouseleave', () => { div.style.background = ''; div.classList.remove('canned-active'); });
+        div.addEventListener('mousedown', (e) => { e.preventDefault(); applyCanned(item.body, slashIdx); });
+        cannedDrop.appendChild(div);
+      });
+      cannedDrop.style.display = 'block';
+    });
+}
+
+function applyCanned(body, slashIdx) {
+  const before = replyBody.value.slice(0, slashIdx);
+  replyBody.value = before + body;
+  closeCannedDrop();
+  replyBody.focus();
+}
+
+function closeCannedDrop() {
+  cannedDrop.style.display = 'none';
+  cannedDrop.innerHTML = '';
+}
+
+// Wire attachment input (replaces onchange="uploadAttachment(this)")
+document.getElementById('attach-input').addEventListener('change', function() {
+  uploadAttachment(this);
+});
+
+// ── Attachment upload ─────────────────────────────────────────────────────────
+function uploadAttachment(input) {
+  if (!input.files.length) return;
+  const file = input.files[0];
+  const status = document.getElementById('attach-status');
+  status.style.display = 'block';
+  status.textContent = 'Uploading…';
+  const fd = new FormData();
+  fd.append('file', file);
+  fetch('{{ url_for("helpdesk.ticket_attach", number=ticket.number) }}', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': CSRF },
+    body: fd,
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      status.textContent = '✓ Uploaded: ' + d.name + ' (' + d.size + ')';
+      const noAtt = document.getElementById('no-attachments');
+      if (noAtt) noAtt.remove();
+      const item = document.createElement('div');
+      item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9;';
+      item.id = 'att-' + d.id;
+      item.innerHTML = '<span style="font-size:18px;">📎</span><div style="flex:1;min-width:0;">'
+        + '<a href="/helpdesk/tickets/{{ ticket.number }}/attachments/' + d.id + '/download" style="font-size:12px;font-weight:600;color:#0f172a;text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" download>' + d.name + '</a>'
+        + '<span style="font-size:11px;color:#94a3b8;">' + d.size + '</span></div>';
+      document.getElementById('attach-list').appendChild(item);
+    } else {
+      status.textContent = '✕ ' + (d.error || 'Upload failed');
+      status.style.color = '#dc2626';
+    }
+    input.value = '';
+  }).catch(() => { status.textContent = '✕ Upload failed'; status.style.color = '#dc2626'; });
+}
+</script>
+{% endblock %}

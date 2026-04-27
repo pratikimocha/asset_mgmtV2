@@ -1,0 +1,573 @@
+{% extends "base.html" %}
+{% block title %}Agent Scorecard — {{ agent_name }}{% endblock %}
+
+{% block content %}
+<style>
+  .sc-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; }
+  .sc-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#94a3b8; margin-bottom:6px; }
+  .sc-big   { font-size:32px; font-weight:800; color:#0f172a; line-height:1; }
+  .sc-sub   { font-size:12px; color:#64748b; margin-top:4px; }
+  .delta-up   { color:#16a34a; font-size:12px; font-weight:600; }
+  .delta-down { color:#dc2626; font-size:12px; font-weight:600; }
+  .delta-neu  { color:#94a3b8; font-size:12px; }
+  .bar-track { background:#f1f5f9; border-radius:99px; height:8px; margin-top:6px; overflow:hidden; }
+  .bar-fill  { height:8px; border-radius:99px; transition:width .6s ease; }
+  .badge-pill { display:inline-flex; align-items:center; gap:6px; padding:7px 14px;
+                background:#f8fafc; border:1px solid #e2e8f0; border-radius:99px;
+                font-size:12px; font-weight:600; color:#334155; }
+  .ring-wrap { position:relative; width:140px; height:140px; flex-shrink:0; }
+  .ring-wrap svg { transform:rotate(-90deg); }
+  .ring-center { position:absolute; inset:0; display:flex; flex-direction:column;
+                 align-items:center; justify-content:center; }
+  .bucket-bar { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .bucket-label { font-size:11px; color:#64748b; width:62px; flex-shrink:0; }
+  .bucket-track { flex:1; background:#f1f5f9; border-radius:99px; height:10px; overflow:hidden; }
+  .bucket-fill  { height:10px; border-radius:99px; }
+  .lb-row { display:flex; align-items:center; gap:10px; padding:8px 0;
+            border-bottom:1px solid #f1f5f9; }
+  .lb-rank { font-size:12px; font-weight:700; color:#94a3b8; width:20px; text-align:center; }
+  .lb-name { flex:1; font-size:13px; font-weight:600; color:#1e293b; }
+  .lb-bar-wrap { width:120px; }
+  .lb-count { font-size:13px; font-weight:700; color:#7c3aed; min-width:28px; text-align:right; }
+</style>
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<div class="page-header" style="flex-wrap:wrap; gap:12px;">
+  <div>
+    <h1 class="page-title">Agent Scorecard</h1>
+    <p class="page-subtitle">
+      {{ period_start }} – {{ period_end }}
+      {% if role in ('admin','manager') and agent_name %}
+        &nbsp;·&nbsp; <strong>{{ agent_name }}</strong>
+      {% endif %}
+    </p>
+  </div>
+  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <!-- Agent selector (managers only) -->
+    {% if role in ('admin','manager') and agent_list %}
+    <form method="get" style="display:flex; gap:6px; align-items:center;">
+      <input type="hidden" name="period" value="{{ period }}">
+      <select name="agent" onchange="this.form.submit()"
+        style="padding:7px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; color:#1e293b;">
+        {% for a in agent_list %}
+        <option value="{{ a }}" {% if a == agent_name %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% endif %}
+    <!-- Period toggle -->
+    <div style="display:flex; gap:4px; background:#f1f5f9; padding:4px; border-radius:8px;">
+      <a href="{{ url_for('helpdesk.agent_scorecard', period='week', agent=agent_name) }}"
+        style="padding:6px 14px; border-radius:6px; font-size:12px; font-weight:600; text-decoration:none;
+               {% if period=='week' %}background:#fff; color:#7c3aed; box-shadow:0 1px 3px rgba(0,0,0,.1);{% else %}color:#64748b;{% endif %}">
+        Week
+      </a>
+      <a href="{{ url_for('helpdesk.agent_scorecard', period='month', agent=agent_name) }}"
+        style="padding:6px 14px; border-radius:6px; font-size:12px; font-weight:600; text-decoration:none;
+               {% if period=='month' %}background:#fff; color:#7c3aed; box-shadow:0 1px 3px rgba(0,0,0,.1);{% else %}color:#64748b;{% endif %}">
+        Month
+      </a>
+    </div>
+    <a href="{{ url_for('helpdesk.reports') }}"
+      style="padding:7px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:12px; font-weight:600; color:#64748b; text-decoration:none;">
+      ← Reports
+    </a>
+  </div>
+</div>
+
+<!-- ── Row 1: Score Ring + 5 KPIs ─────────────────────────────────────────── -->
+{% set circ = 339 %}
+{% set dash = (score / 100 * circ)|round(1) %}
+<div style="display:grid; grid-template-columns:220px 1fr; gap:16px; margin-bottom:16px;">
+
+  <!-- Score Ring Card -->
+  <div class="sc-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center;">
+    <div class="sc-label">Performance Score</div>
+    <div class="ring-wrap">
+      <svg width="140" height="140" viewBox="0 0 140 140">
+        <circle cx="70" cy="70" r="54" fill="none" stroke="#f1f5f9" stroke-width="12"/>
+        <circle cx="70" cy="70" r="54" fill="none" stroke="{{ grade_color }}" stroke-width="12"
+          stroke-linecap="round"
+          stroke-dasharray="{{ dash }} {{ circ }}"
+          stroke-dashoffset="0"/>
+      </svg>
+      <div class="ring-center">
+        <div style="font-size:34px; font-weight:900; color:{{ grade_color }}; line-height:1;">{{ score }}</div>
+        <div style="font-size:11px; color:#94a3b8; font-weight:600;">/100</div>
+      </div>
+    </div>
+    <div>
+      <span style="display:inline-block; padding:4px 14px; border-radius:99px; font-size:20px; font-weight:900;
+                   background:{{ grade_color }}1a; color:{{ grade_color }}; letter-spacing:.05em;">{{ grade }}</span>
+      <div style="font-size:12px; font-weight:600; color:#64748b; margin-top:4px;">{{ grade_label }}</div>
+    </div>
+    {% if team_size > 1 %}
+    <div style="font-size:11px; color:#94a3b8; padding:6px 12px; background:#f8fafc; border-radius:8px; width:100%;">
+      Rank <strong style="color:#7c3aed;">#{{ rank }}</strong> of {{ team_size }} agents
+      &nbsp;·&nbsp; Top <strong style="color:#7c3aed;">{{ 100 - percentile }}%</strong>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- 5 KPI Cards -->
+  <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:12px;">
+
+    <!-- Resolved -->
+    <div class="sc-card">
+      <div class="sc-label">Resolved</div>
+      <div class="sc-big" style="color:#7c3aed;">{{ current.resolved }}</div>
+      <div class="sc-sub">tickets {{ period_label|lower }}</div>
+      {% if deltas.resolved is not none %}
+        {% if deltas.resolved > 0 %}
+          <div class="delta-up" style="margin-top:6px;">↑ +{{ deltas.resolved }} vs prev</div>
+        {% elif deltas.resolved < 0 %}
+          <div class="delta-down" style="margin-top:6px;">↓ {{ deltas.resolved }} vs prev</div>
+        {% else %}
+          <div class="delta-neu" style="margin-top:6px;">= same as prev</div>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <!-- SLA Compliance -->
+    <div class="sc-card">
+      <div class="sc-label">SLA Compliance</div>
+      {% if current.sla_pct is not none %}
+        <div class="sc-big" style="color:{% if current.sla_pct>=90 %}#16a34a{% elif current.sla_pct>=70 %}#ca8a04{% else %}#dc2626{% endif %};">
+          {{ current.sla_pct }}%
+        </div>
+        <div class="sc-sub">{{ current.sla_met }}/{{ current.sla_total }} tickets</div>
+        <div class="bar-track"><div class="bar-fill" style="width:{{ current.sla_pct }}%;
+          background:{% if current.sla_pct>=90 %}#16a34a{% elif current.sla_pct>=70 %}#ca8a04{% else %}#dc2626{% endif %};"></div></div>
+        {% if deltas.sla_pct is not none %}
+          {% if deltas.sla_pct > 0 %}<div class="delta-up" style="margin-top:4px;">↑ +{{ deltas.sla_pct }}pp</div>
+          {% elif deltas.sla_pct < 0 %}<div class="delta-down" style="margin-top:4px;">↓ {{ deltas.sla_pct }}pp</div>
+          {% else %}<div class="delta-neu" style="margin-top:4px;">= unchanged</div>{% endif %}
+        {% endif %}
+      {% else %}
+        <div class="sc-big" style="color:#94a3b8;">—</div>
+        <div class="sc-sub">no SLA data</div>
+      {% endif %}
+    </div>
+
+    <!-- First Response -->
+    <div class="sc-card">
+      <div class="sc-label">First Response</div>
+      {% if current.fr_pct is not none %}
+        <div class="sc-big" style="color:{% if current.fr_pct>=90 %}#16a34a{% elif current.fr_pct>=70 %}#ca8a04{% else %}#dc2626{% endif %};">
+          {{ current.fr_pct }}%
+        </div>
+        <div class="sc-sub">{{ current.fr_met }}/{{ current.fr_total }} on time</div>
+        <div class="bar-track"><div class="bar-fill" style="width:{{ current.fr_pct }}%;
+          background:{% if current.fr_pct>=90 %}#16a34a{% elif current.fr_pct>=70 %}#ca8a04{% else %}#dc2626{% endif %};"></div></div>
+        {% if deltas.fr_pct is not none %}
+          {% if deltas.fr_pct > 0 %}<div class="delta-up" style="margin-top:4px;">↑ +{{ deltas.fr_pct }}pp</div>
+          {% elif deltas.fr_pct < 0 %}<div class="delta-down" style="margin-top:4px;">↓ {{ deltas.fr_pct }}pp</div>
+          {% else %}<div class="delta-neu" style="margin-top:4px;">= unchanged</div>{% endif %}
+        {% endif %}
+      {% else %}
+        <div class="sc-big" style="color:#94a3b8;">—</div>
+        <div class="sc-sub">no FR data</div>
+      {% endif %}
+    </div>
+
+    <!-- Avg Resolution Time -->
+    <div class="sc-card">
+      <div class="sc-label">Avg Resolution</div>
+      {% if current.avg_h is not none %}
+        {% if current.avg_h < 1 %}
+          <div class="sc-big" style="color:#16a34a;">{{ (current.avg_h * 60)|round|int }}m</div>
+        {% elif current.avg_h < 24 %}
+          <div class="sc-big" style="color:{% if current.avg_h<8 %}#16a34a{% elif current.avg_h<24 %}#ca8a04{% else %}#dc2626{% endif %};">{{ current.avg_h }}h</div>
+        {% else %}
+          <div class="sc-big" style="color:#dc2626;">{{ (current.avg_h/24)|round(1) }}d</div>
+        {% endif %}
+        <div class="sc-sub">per ticket</div>
+        {% if deltas.avg_h is not none %}
+          {% if deltas.avg_h < 0 %}<div class="delta-up" style="margin-top:6px;">↑ {{ deltas.avg_h|abs|round(1) }}h faster</div>
+          {% elif deltas.avg_h > 0 %}<div class="delta-down" style="margin-top:6px;">↓ {{ deltas.avg_h|round(1) }}h slower</div>
+          {% else %}<div class="delta-neu" style="margin-top:6px;">= same speed</div>{% endif %}
+        {% endif %}
+      {% else %}
+        <div class="sc-big" style="color:#94a3b8;">—</div>
+        <div class="sc-sub">no data yet</div>
+      {% endif %}
+    </div>
+
+    <!-- Overdue / Open -->
+    <div class="sc-card" style="{% if current.overdue > 0 %}background:#fef2f2; border-color:#fecaca;{% endif %}">
+      <div class="sc-label" style="{% if current.overdue > 0 %}color:#dc2626;{% endif %}">Overdue</div>
+      <div class="sc-big" style="color:{% if current.overdue > 0 %}#dc2626{% else %}#16a34a{% endif %};">{{ current.overdue }}</div>
+      <div class="sc-sub">{{ current.open_count }} total open</div>
+      {% if deltas.overdue is not none %}
+        {% if deltas.overdue < 0 %}<div class="delta-up" style="margin-top:6px;">↑ {{ deltas.overdue|abs }} fewer</div>
+        {% elif deltas.overdue > 0 %}<div class="delta-down" style="margin-top:6px;">↓ +{{ deltas.overdue }} more</div>
+        {% else %}<div class="delta-neu" style="margin-top:6px;">= unchanged</div>{% endif %}
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Row 2: Priority Mastery + Speed Distribution ───────────────────────── -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+
+  <!-- Priority Mastery -->
+  <div class="sc-card">
+    <div class="sc-label" style="margin-bottom:14px;">Priority Mastery</div>
+    {% set prio_max = [current.priority_counts.get('critical',0), current.priority_counts.get('high',0),
+                       current.priority_counts.get('medium',0), current.priority_counts.get('low',0)] | max %}
+    {% for prio, color, bg in [('critical','#dc2626','#fef2f2'), ('high','#ea580c','#fff7ed'),
+                                ('medium','#ca8a04','#fefce8'), ('low','#2563eb','#eff6ff')] %}
+    {% set cnt = current.priority_counts.get(prio, 0) %}
+    {% set pct = ((cnt / prio_max * 100)|round|int) if prio_max > 0 else 0 %}
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+      <div style="width:64px; font-size:12px; font-weight:700; color:{{ color }}; text-transform:capitalize;">{{ prio }}</div>
+      <div style="flex:1; background:#f1f5f9; border-radius:99px; height:10px; overflow:hidden;">
+        <div style="height:10px; width:{{ pct }}%; background:{{ color }}; border-radius:99px; transition:width .6s;"></div>
+      </div>
+      <div style="font-size:13px; font-weight:700; color:#1e293b; min-width:24px; text-align:right;">{{ cnt }}</div>
+    </div>
+    {% endfor %}
+    <div style="margin-top:12px; padding-top:12px; border-top:1px solid #f1f5f9; font-size:12px; color:#94a3b8;">
+      Total resolved: <strong style="color:#1e293b;">{{ current.resolved }}</strong>
+      &nbsp;·&nbsp; Team avg: <strong style="color:#7c3aed;">{{ team_avg }}</strong>
+    </div>
+  </div>
+
+  <!-- Resolution Speed Distribution -->
+  <div class="sc-card">
+    <div class="sc-label" style="margin-bottom:14px;">Resolution Speed</div>
+    {% set bmax = [current.buckets.lt1h, current.buckets.h1to4, current.buckets.h4to24, current.buckets.d1to3, current.buckets.gt3d] | max %}
+    {% for label, key, color in [('< 1 hour','lt1h','#16a34a'), ('1–4 hours','h1to4','#22c55e'),
+                                  ('4–24 hours','h4to24','#ca8a04'), ('1–3 days','d1to3','#ea580c'),
+                                  ('> 3 days','gt3d','#dc2626')] %}
+    {% set cnt = current.buckets[key] %}
+    {% set pct = ((cnt / bmax * 100)|round|int) if bmax > 0 else 0 %}
+    <div class="bucket-bar">
+      <div class="bucket-label">{{ label }}</div>
+      <div class="bucket-track"><div class="bucket-fill" style="width:{{ pct }}%; background:{{ color }};"></div></div>
+      <div style="font-size:13px; font-weight:700; color:#1e293b; min-width:20px; text-align:right;">{{ cnt }}</div>
+    </div>
+    {% endfor %}
+    {% if current.avg_h is not none %}
+    <div style="margin-top:12px; padding-top:12px; border-top:1px solid #f1f5f9; font-size:12px; color:#94a3b8;">
+      Median speed insight: most tickets resolved
+      {% if current.buckets.lt1h >= current.buckets.h1to4 and current.buckets.lt1h >= current.buckets.h4to24 %}
+        <strong style="color:#16a34a;">under 1 hour</strong>
+      {% elif current.buckets.h1to4 >= current.buckets.h4to24 %}
+        <strong style="color:#22c55e;">within 4 hours</strong>
+      {% elif current.buckets.h4to24 >= current.buckets.d1to3 %}
+        <strong style="color:#ca8a04;">within 24 hours</strong>
+      {% else %}
+        <strong style="color:#ea580c;">beyond 1 day</strong>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── Row 3: Category Expertise + Badges ─────────────────────────────────── -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+
+  <!-- Category Expertise -->
+  <div class="sc-card">
+    <div class="sc-label" style="margin-bottom:14px;">Category Expertise</div>
+    {% if current.categories %}
+      {% set cmax = current.categories[0].count %}
+      {% for cat in current.categories %}
+      {% set pct = ((cat.count / cmax * 100)|round|int) if cmax > 0 else 0 %}
+      <div style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <span style="font-size:13px; font-weight:600; color:#1e293b;">{{ cat.name }}</span>
+          <span style="font-size:12px; font-weight:700; color:#7c3aed;">{{ cat.count }}</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:{{ pct }}%; background:#7c3aed;"></div></div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div style="text-align:center; padding:20px; color:#94a3b8; font-size:13px;">No resolved tickets yet this {{ period }}</div>
+    {% endif %}
+  </div>
+
+  <!-- Achievements / Badges -->
+  <div class="sc-card">
+    <div class="sc-label" style="margin-bottom:14px;">Achievements</div>
+    {% if badges %}
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        {% for b in badges %}
+        <div style="display:flex; align-items:center; gap:12px; padding:10px 14px;
+                    background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;">
+          <span style="font-size:20px;">{{ b.icon }}</span>
+          <div>
+            <div style="font-size:13px; font-weight:700; color:#1e293b;">{{ b.name }}</div>
+            <div style="font-size:11px; color:#64748b;">{{ b.desc }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="text-align:center; padding:30px 20px; color:#94a3b8;">
+        <div style="font-size:28px; margin-bottom:8px;">🎯</div>
+        <div style="font-size:13px; font-weight:600;">No badges yet this {{ period }}</div>
+        <div style="font-size:12px; margin-top:4px;">Resolve tickets, hit SLA targets, and improve speed to earn badges.</div>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── Row 4: Prev Period Comparison ──────────────────────────────────────── -->
+<div class="sc-card" style="margin-bottom:16px;">
+  <div class="sc-label" style="margin-bottom:14px;">Period Comparison — {{ period_label }} vs Previous {{ period|capitalize }}</div>
+  <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px;">
+    {% for label, curr_val, prev_val, unit, lower_is_better in [
+        ('Tickets Resolved', current.resolved, previous.resolved, '', false),
+        ('SLA Compliance',   current.sla_pct,  previous.sla_pct,  '%', false),
+        ('First Response',   current.fr_pct,   previous.fr_pct,   '%', false),
+        ('Avg Resolution',   current.avg_h,    previous.avg_h,    'h', true),
+        ('Overdue',          current.overdue,  previous.overdue,  '', true),
+    ] %}
+    <div style="padding:12px; background:#f8fafc; border-radius:10px; border:1px solid #f1f5f9;">
+      <div style="font-size:11px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px;">{{ label }}</div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+        <div>
+          <div style="font-size:11px; color:#94a3b8;">Now</div>
+          <div style="font-size:20px; font-weight:800; color:#1e293b;">
+            {% if curr_val is not none %}{{ curr_val }}{{ unit }}{% else %}—{% endif %}
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px; color:#94a3b8;">Prev</div>
+          <div style="font-size:16px; font-weight:700; color:#94a3b8;">
+            {% if prev_val is not none %}{{ prev_val }}{{ unit }}{% else %}—{% endif %}
+          </div>
+        </div>
+      </div>
+      {% if curr_val is not none and prev_val is not none %}
+        {% set diff = curr_val - prev_val %}
+        {% set improved = (diff > 0 and not lower_is_better) or (diff < 0 and lower_is_better) %}
+        {% set worsened = (diff < 0 and not lower_is_better) or (diff > 0 and lower_is_better) %}
+        {% if diff != 0 %}
+        <div style="margin-top:6px; font-size:11px; font-weight:700;
+                    color:{% if improved %}#16a34a{% elif worsened %}#dc2626{% else %}#94a3b8{% endif %};">
+          {% if diff > 0 %}▲{% else %}▼{% endif %} {{ diff|abs }}{{ unit }}
+          {% if improved %}improved{% elif worsened %}declined{% endif %}
+        </div>
+        {% else %}
+        <div style="margin-top:6px; font-size:11px; color:#94a3b8;">→ No change</div>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ── Team Leaderboard (Managers only) ───────────────────────────────────── -->
+{% if role in ('admin','manager') and leaderboard %}
+<div class="sc-card" style="margin-bottom:16px;">
+  <div class="sc-label" style="margin-bottom:14px;">Team Leaderboard — {{ period_label }} Resolved</div>
+  {% set lb_max = leaderboard[0].resolved if leaderboard else 1 %}
+  {% for row in leaderboard %}
+  <div class="lb-row" style="{% if row.agent == agent_name %}background:#f5f3ff; border-radius:8px; padding:8px 10px; margin:0 -10px;{% endif %}">
+    <div class="lb-rank" style="{% if loop.index0==0 %}color:#ca8a04;{% elif loop.index0==1 %}color:#94a3b8;{% elif loop.index0==2 %}color:#cd7c37;{% endif %}">
+      {% if loop.index0==0 %}🥇{% elif loop.index0==1 %}🥈{% elif loop.index0==2 %}🥉{% else %}{{ loop.index }}{% endif %}
+    </div>
+    <div class="lb-name">
+      {{ row.agent }}
+      {% if row.agent == agent_name %}<span style="font-size:10px; color:#7c3aed; font-weight:700; margin-left:6px;">YOU</span>{% endif %}
+    </div>
+    <div class="lb-bar-wrap">
+      <div style="background:#f1f5f9; border-radius:99px; height:6px; overflow:hidden;">
+        <div style="height:6px; width:{{ (row.resolved / lb_max * 100)|round|int }}%; background:#7c3aed; border-radius:99px;"></div>
+      </div>
+    </div>
+    <div class="lb-count">{{ row.resolved }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ── AI Narrative ────────────────────────────────────────────────────────── -->
+<div class="sc-card" style="margin-bottom:16px; border-left:4px solid #7c3aed; background:linear-gradient(135deg,#faf5ff 0%,#fff 60%);">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+    <span style="font-size:20px;">🤖</span>
+    <div>
+      <div style="font-size:13px; font-weight:700; color:#7c3aed;">AI Performance Summary</div>
+      <div style="font-size:11px; color:#94a3b8;">Auto-generated from live data · {{ period_label }}</div>
+    </div>
+  </div>
+  <p style="font-size:14px; line-height:1.7; color:#334155; margin:0;">{{ narrative }}</p>
+</div>
+
+<!-- ── Active Ticket Snapshot ──────────────────────────────────────────────── -->
+<div class="sc-card" style="margin-bottom:16px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+    <div class="sc-label" style="margin-bottom:0;">Active Tickets — Live Queue ({{ current.open_count }} open{% if current.overdue > 0 %}, <span style="color:#dc2626;">{{ current.overdue }} overdue</span>{% endif %})</div>
+    <a href="{{ url_for('helpdesk.ticket_queue', view='mine') }}" style="font-size:12px; color:#7c3aed; text-decoration:none; font-weight:600;">View all →</a>
+  </div>
+  {% if active_snapshot %}
+  <div style="overflow-x:auto;">
+    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+      <thead>
+        <tr style="border-bottom:2px solid #f1f5f9;">
+          <th style="text-align:left; padding:6px 8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8;">Ticket</th>
+          <th style="text-align:left; padding:6px 8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8;">Title</th>
+          <th style="text-align:center; padding:6px 8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8;">Priority</th>
+          <th style="text-align:center; padding:6px 8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8;">Status</th>
+          <th style="text-align:center; padding:6px 8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8;">Age</th>
+          <th style="text-align:center; padding:6px 8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8;">SLA</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for t in active_snapshot %}
+      <tr style="border-bottom:1px solid #f8fafc; {% if t.sla_state == 'breached' %}background:#fef2f2;{% elif t.sla_state == 'warning' %}background:#fff7ed;{% endif %}">
+        <td style="padding:8px; font-weight:700; color:#7c3aed; white-space:nowrap;">
+          <a href="{{ url_for('helpdesk.ticket_detail', number=t.number) }}" style="color:#7c3aed; text-decoration:none;">{{ t.number }}</a>
+        </td>
+        <td style="padding:8px; color:#1e293b; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ t.title }}</td>
+        <td style="padding:8px; text-align:center;">
+          {% set pc = {'critical':('#fef2f2','#dc2626'), 'high':('#fff7ed','#ea580c'), 'medium':('#fefce8','#ca8a04'), 'low':('#f0fdf4','#16a34a')} %}
+          {% set bg, fg = pc.get(t.priority, ('#f1f5f9','#64748b')) %}
+          <span style="padding:2px 8px; border-radius:99px; font-size:11px; font-weight:700; background:{{ bg }}; color:{{ fg }}; text-transform:capitalize;">{{ t.priority }}</span>
+        </td>
+        <td style="padding:8px; text-align:center; font-size:11px; font-weight:600; color:#64748b; text-transform:capitalize;">{{ t.status.replace('_',' ') }}</td>
+        <td style="padding:8px; text-align:center; font-size:12px; color:#64748b; white-space:nowrap;">{{ t.age_label }}</td>
+        <td style="padding:8px; text-align:center;">
+          {% if t.sla_state == 'breached' %}
+            <span style="padding:2px 8px; border-radius:99px; font-size:11px; font-weight:700; background:#fef2f2; color:#dc2626;">Breached</span>
+          {% elif t.sla_state == 'warning' %}
+            <span style="padding:2px 8px; border-radius:99px; font-size:11px; font-weight:700; background:#fff7ed; color:#ea580c;">Due Soon</span>
+          {% elif t.sla_state == 'ok' %}
+            <span style="padding:2px 8px; border-radius:99px; font-size:11px; font-weight:700; background:#f0fdf4; color:#16a34a;">On Track</span>
+          {% else %}
+            <span style="font-size:11px; color:#94a3b8;">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div style="text-align:center; padding:20px; color:#94a3b8; font-size:13px;">No open tickets — all clear! ✅</div>
+  {% endif %}
+</div>
+
+<!-- ── Daily Activity Pattern ──────────────────────────────────────────────── -->
+<div class="sc-card" style="margin-bottom:16px;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+    <div>
+      <div class="sc-label" style="margin-bottom:4px;">Daily Activity — Tickets Resolved</div>
+      <div style="font-size:12px; color:#64748b;">
+        Active on <strong style="color:#7c3aed;">{{ working_days }}</strong> of {{ period_days }} days
+        &nbsp;·&nbsp; Consistency: <strong style="color:{% if consistency_pct >= 80 %}#16a34a{% elif consistency_pct >= 50 %}#ca8a04{% else %}#dc2626{% endif %};">{{ consistency_pct }}%</strong>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex; align-items:flex-end; gap:{% if period_days <= 7 %}8{% else %}4{% endif %}px; height:80px; padding-bottom:4px;">
+    {% for day in daily_activity %}
+    {% set bar_h = ((day.count / daily_max) * 70)|round|int %}
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0;">
+      {% if day.count > 0 %}
+      <div style="font-size:10px; font-weight:700; color:#7c3aed;">{{ day.count }}</div>
+      <div style="width:100%; height:{{ bar_h }}px; background:#7c3aed; border-radius:4px 4px 0 0; min-height:4px; transition:height .4s;"></div>
+      {% else %}
+      <div style="font-size:10px; color:transparent;">0</div>
+      <div style="width:100%; height:4px; background:#f1f5f9; border-radius:4px 4px 0 0;"></div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <div style="display:flex; gap:{% if period_days <= 7 %}8{% else %}4{% endif %}px; border-top:1px solid #f1f5f9; padding-top:4px;">
+    {% for day in daily_activity %}
+    <div style="flex:1; text-align:center; font-size:{% if period_days <= 7 %}11{% else %}9{% endif %}px; color:#94a3b8; min-width:0; overflow:hidden;">
+      {{ day.short }}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ── Documentation & Repeat Requesters ──────────────────────────────────── -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+
+  <!-- Documentation Score -->
+  <div class="sc-card">
+    <div class="sc-label" style="margin-bottom:14px;">Documentation & Effort</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:14px;">
+      <div style="text-align:center; padding:12px 8px; background:#f8fafc; border-radius:10px;">
+        <div style="font-size:22px; font-weight:800; color:#7c3aed;">{{ doc_score.total_comments }}</div>
+        <div style="font-size:10px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; margin-top:2px;">Total Comments</div>
+      </div>
+      <div style="text-align:center; padding:12px 8px; background:#f8fafc; border-radius:10px;">
+        <div style="font-size:22px; font-weight:800; color:#2563eb;">{{ doc_score.internal_notes }}</div>
+        <div style="font-size:10px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; margin-top:2px;">Internal Notes</div>
+      </div>
+      <div style="text-align:center; padding:12px 8px; background:#f8fafc; border-radius:10px;">
+        <div style="font-size:22px; font-weight:800; color:#0891b2;">{{ doc_score.avg_per_ticket }}</div>
+        <div style="font-size:10px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; margin-top:2px;">Avg / Ticket</div>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px;
+                border-radius:10px; background:{% if doc_score.quality == 'Thorough' %}#f0fdf4{% elif doc_score.quality == 'Average' %}#fefce8{% else %}#fef2f2{% endif %};">
+      <span style="font-size:13px; font-weight:700; color:{% if doc_score.quality == 'Thorough' %}#16a34a{% elif doc_score.quality == 'Average' %}#ca8a04{% else %}#dc2626{% endif %};">
+        {{ doc_score.quality }} Documentation
+      </span>
+      <span style="font-size:18px;">{% if doc_score.quality == 'Thorough' %}📝{% elif doc_score.quality == 'Average' %}📄{% else %}⚠️{% endif %}</span>
+    </div>
+    <div style="margin-top:10px; font-size:11px; color:#94a3b8; line-height:1.5;">
+      {% if doc_score.quality == 'Thorough' %}Well documented tickets — manager can audit work easily and requesters are well informed.
+      {% elif doc_score.quality == 'Average' %}Acceptable documentation. More detailed notes help with audits and knowledge transfer.
+      {% else %}Low comment count — encourage this agent to document their work steps and communicate more with requesters.{% endif %}
+    </div>
+  </div>
+
+  <!-- Repeat Requesters -->
+  <div class="sc-card">
+    <div class="sc-label" style="margin-bottom:4px;">Repeat Requesters</div>
+    <div style="font-size:11px; color:#64748b; margin-bottom:14px;">Same person raised multiple tickets this {{ period }}</div>
+    {% if repeat_requesters %}
+      {% set rmax = repeat_requesters[0].count %}
+      {% for r in repeat_requesters %}
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+        <div style="width:28px; height:28px; border-radius:50%; background:#ede9fe; color:#7c3aed;
+                    font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          {{ r.name[0]|upper }}
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:12px; font-weight:600; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ r.name }}</div>
+          <div style="background:#f1f5f9; border-radius:99px; height:5px; margin-top:4px; overflow:hidden;">
+            <div style="height:5px; width:{{ (r.count / rmax * 100)|round|int }}%; background:#7c3aed; border-radius:99px;"></div>
+          </div>
+        </div>
+        <div style="font-size:13px; font-weight:700; color:#7c3aed; flex-shrink:0;">{{ r.count }}×</div>
+      </div>
+      {% endfor %}
+      <div style="margin-top:10px; font-size:11px; color:#94a3b8; padding-top:10px; border-top:1px solid #f1f5f9;">
+        Repeat tickets may indicate unresolved root causes or power users. Worth a follow-up conversation.
+      </div>
+    {% else %}
+      <div style="text-align:center; padding:24px 16px; color:#94a3b8;">
+        <div style="font-size:24px; margin-bottom:6px;">✅</div>
+        <div style="font-size:13px; font-weight:600; color:#16a34a;">No repeat requesters</div>
+        <div style="font-size:11px; margin-top:4px;">Issues are being resolved at the root — great quality signal.</div>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── Score Breakdown Footer ─────────────────────────────────────────────── -->
+<div class="sc-card" style="background:#f8fafc;">
+  <div class="sc-label" style="margin-bottom:10px;">How Your Score Is Calculated</div>
+  <div style="display:flex; flex-wrap:wrap; gap:8px; font-size:12px; color:#64748b;">
+    <span class="badge-pill">SLA Resolution <strong style="color:#7c3aed; margin-left:4px;">30%</strong></span>
+    <span class="badge-pill">First Response <strong style="color:#7c3aed; margin-left:4px;">20%</strong></span>
+    <span class="badge-pill">Ticket Volume <strong style="color:#7c3aed; margin-left:4px;">20%</strong></span>
+    <span class="badge-pill">Resolution Speed <strong style="color:#7c3aed; margin-left:4px;">15%</strong></span>
+    <span class="badge-pill">Priority Handling <strong style="color:#7c3aed; margin-left:4px;">15%</strong></span>
+    <span class="badge-pill" style="border-color:#fecaca; background:#fef2f2; color:#dc2626;">Overdue Penalty <strong style="margin-left:4px;">−4 pts/ticket</strong></span>
+  </div>
+</div>
+
+{% endblock %}

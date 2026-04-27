@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Maintenance{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Maintenance Schedule</h1>
+    <p class="page-subtitle">{{ tasks|length }} task{{ 's' if tasks|length != 1 else '' }}</p>
+  </div>
+  {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+  <button id="btn-schedule-task" class="btn btn-primary">+ Schedule Task</button>
+  {% endif %}
+</div>
+
+{% if overdue_count > 0 %}
+<div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
+  <span style="font-size: 20px;">⚠️</span>
+  <div>
+    <strong style="color: #c2410c;">{{ overdue_count }} overdue task{{ 's' if overdue_count != 1 else '' }}</strong>
+    <span style="color: #9a3412; font-size: 13px; margin-left: 8px;">Maintenance tasks past their scheduled date</span>
+  </div>
+</div>
+{% endif %}
+
+<form method="get" class="filters-bar">
+  <select name="status" class="filter-input">
+    <option value="">All Status</option>
+    <option value="scheduled" {% if status_f == 'scheduled' %}selected{% endif %}>Scheduled</option>
+    <option value="completed" {% if status_f == 'completed' %}selected{% endif %}>Completed</option>
+  </select>
+  <button type="submit" class="btn btn-primary">Filter</button>
+  {% if status_f %}<a href="{{ url_for('maintenance.list') }}" class="btn btn-secondary">Clear</a>{% endif %}
+</form>
+
+<div class="card" style="padding: 0; overflow: hidden;">
+  {% if tasks %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Asset</th>
+        <th>Task Type</th>
+        <th>Status</th>
+        <th>Scheduled</th>
+        <th>Completed</th>
+        <th>Assigned To</th>
+        <th>Notes</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for task, asset in tasks %}
+      {% set is_overdue = task.status == 'scheduled' and task.scheduled_date and task.scheduled_date < today %}
+      <tr style="{{ 'background: #fff7ed;' if is_overdue else '' }}">
+        <td>
+          <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" style="color: #3b82f6; text-decoration: none; font-weight: 600; font-size: 13px;">{{ asset.serial_number }}</a>
+          <div style="font-size: 12px; color: #64748b;">{{ asset.model or '' }}</div>
+        </td>
+        <td style="font-size: 13px; font-weight: 500;">{{ task.task_type or '—' }}</td>
+        <td>
+          {% if task.status == 'completed' %}
+          <span style="background: #d1fae5; color: #065f46; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;">✓ Done</span>
+          {% elif is_overdue %}
+          <span style="background: #fee2e2; color: #991b1b; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;">⚠ Overdue</span>
+          {% else %}
+          <span style="background: #e0f2fe; color: #0369a1; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;">📅 Scheduled</span>
+          {% endif %}
+        </td>
+        <td style="font-size: 13px; {{ 'color: #dc2626; font-weight: 600;' if is_overdue else 'color: #64748b;' }}">{{ task.scheduled_date.strftime('%b %d, %Y') if task.scheduled_date else '—' }}</td>
+        <td style="font-size: 13px; color: #64748b;">{{ task.completed_date.strftime('%b %d, %Y') if task.completed_date else '—' }}</td>
+        <td style="font-size: 13px; color: #64748b;">{{ task.assigned_to or '—' }}</td>
+        <td style="font-size: 12px; color: #64748b; max-width: 200px;">{{ task.notes or '—' }}</td>
+        <td>
+          {% if session.get('user', {}).get('role') in ('admin', 'manager') and task.status == 'scheduled' %}
+          <form method="post" action="{{ url_for('maintenance.complete', task_id=task.id) }}" data-confirm="Mark this task as complete?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary" style="padding: 4px 10px; font-size: 12px;">✓ Done</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state" style="padding: 60px 0; text-align: center;">
+    <div style="font-size: 40px; margin-bottom: 12px;">📅</div>
+    <p style="color: #64748b; font-size: 15px;">No maintenance tasks scheduled</p>
+    {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+    <button class="btn-open-schedule btn btn-primary" style="margin-top: 12px;">Schedule First Task</button>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Modal: Schedule Task -->
+<div class="modal-overlay" id="schedule-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Schedule Maintenance</h3>
+      <button id="btn-close-schedule-modal" class="modal-close">✕</button>
+    </div>
+    <form method="post" action="{{ url_for('maintenance.schedule') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group">
+        <label class="form-label">Asset Serial / Model</label>
+        <input type="text" id="asset-search-input" class="form-control" placeholder="Type serial number to search...">
+        <input type="hidden" id="asset-id-input" name="asset_id" required>
+        <div id="asset-results" style="border: 1px solid #e2e8f0; border-radius: 8px; margin-top: 4px; max-height: 150px; overflow-y: auto; display: none;"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Task Type</label>
+        <input type="text" name="task_type" class="form-control" list="task-types" placeholder="e.g. Battery Replacement" required>
+        <datalist id="task-types">
+          <option value="Battery Replacement">
+          <option value="Screen Replacement">
+          <option value="Software Update">
+          <option value="Cleaning">
+          <option value="Hardware Inspection">
+          <option value="OS Reinstall">
+        </datalist>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="form-group">
+          <label class="form-label">Scheduled Date</label>
+          <input type="date" name="scheduled_date" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Assigned To</label>
+          <input type="text" name="assigned_to" class="form-control" placeholder="Technician name">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="2" placeholder="Additional details..."></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width: 100%;">Schedule Task</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ g.csp_nonce }}">
+const scheduleModal = document.getElementById('schedule-modal');
+function openScheduleModal() {
+  if (scheduleModal) {
+    scheduleModal.classList.add('open');
+    scheduleModal.style.display = 'flex';
+  }
+}
+function closeScheduleModal() {
+  if (scheduleModal) {
+    scheduleModal.classList.remove('open');
+    scheduleModal.style.display = 'none';
+  }
+}
+
+document.getElementById('btn-schedule-task')?.addEventListener('click', openScheduleModal);
+document.querySelectorAll('.btn-open-schedule').forEach(btn => btn.addEventListener('click', openScheduleModal));
+document.getElementById('btn-close-schedule-modal')?.addEventListener('click', closeScheduleModal);
+scheduleModal?.addEventListener('click', e => { if (e.target === scheduleModal) closeScheduleModal(); });
+
+document.getElementById('asset-search-input')?.addEventListener('input', function() { searchAssets(this.value); });
+
+const resultsDiv = document.getElementById('asset-results');
+resultsDiv?.addEventListener('click', function(e) {
+  const item = e.target.closest('[data-asset-id]');
+  if (item) selectAsset(parseInt(item.dataset.assetId), item.dataset.label);
+});
+resultsDiv?.addEventListener('mouseover', function(e) {
+  const item = e.target.closest('[data-asset-id]');
+  if (item) item.style.background = '#f8fafc';
+});
+resultsDiv?.addEventListener('mouseout', function(e) {
+  const item = e.target.closest('[data-asset-id]');
+  if (item) item.style.background = '';
+});
+
+let assetSearchTimeout;
+async function searchAssets(q) {
+  clearTimeout(assetSearchTimeout);
+  if (!q.trim()) { resultsDiv.style.display = 'none'; return; }
+  assetSearchTimeout = setTimeout(async () => {
+    const res = await fetch(`/api/assets/list?q=${encodeURIComponent(q)}&limit=10`);
+    const data = await res.json();
+    if (data.items && data.items.length > 0) {
+      resultsDiv.innerHTML = data.items.map(a =>
+        `<div data-asset-id="${a.id}" data-label="${a.serial_number} - ${a.model || ''}" style="padding: 8px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f1f5f9;">${a.serial_number}${a.model ? ' — ' + a.model : ''}</div>`
+      ).join('');
+      resultsDiv.style.display = 'block';
+    } else {
+      resultsDiv.innerHTML = '<div style="padding: 10px 12px; color: #94a3b8; font-size: 13px;">No assets found</div>';
+      resultsDiv.style.display = 'block';
+    }
+  }, 300);
+}
+function selectAsset(id, label) {
+  document.getElementById('asset-id-input').value = id;
+  document.getElementById('asset-search-input').value = label;
+  resultsDiv.style.display = 'none';
+}
+</script>
+{% endblock %}

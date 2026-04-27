@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Asset Manager{% endblock %} — iMocha</title>
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+{% if session.get("user") %}
+{% set in_helpdesk = request.path.startswith('/helpdesk') %}
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    {% if in_helpdesk %}
+    <a href="{{ url_for('helpdesk.dashboard') }}" class="brand-logo-link">
+      <div class="brand-logo-wrap">
+        <img src="{{ url_for('static', filename='images/imocha-logo.png') }}" alt="iMocha" class="brand-logo">
+      </div>
+      <span class="brand-platform-tag" style="color: #c4b5fd;">Helpdesk</span>
+    </a>
+    {% else %}
+    <a href="{{ url_for('dashboard.index') }}" class="brand-logo-link">
+      <div class="brand-logo-wrap">
+        <img src="{{ url_for('static', filename='images/imocha-logo.png') }}" alt="iMocha" class="brand-logo">
+      </div>
+      <span class="brand-platform-tag">Asset Manager</span>
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Platform switcher -->
+  <div style="padding: 0 12px 12px; display: flex; gap: 4px; border-bottom: 1px solid #e2e8f0; margin-bottom: 8px;">
+    <a href="{{ url_for('dashboard.index') }}"
+      style="flex: 1; text-align: center; padding: 6px 8px; border-radius: 7px; font-size: 12px; font-weight: 600; text-decoration: none; transition: all 0.15s;
+             {% if not in_helpdesk %}background: #f1f5f9; color: #0f172a;{% else %}color: #64748b;{% endif %}">
+      Assets
+    </a>
+    <a href="{{ url_for('helpdesk.dashboard') }}"
+      style="flex: 1; text-align: center; padding: 6px 8px; border-radius: 7px; font-size: 12px; font-weight: 600; text-decoration: none; transition: all 0.15s;
+             {% if in_helpdesk %}background: #ede9fe; color: #7c3aed;{% else %}color: #64748b;{% endif %}">
+      Helpdesk
+    </a>
+  </div>
+
+  <nav class="sidebar-nav">
+  {% if in_helpdesk %}
+  <!-- ── Helpdesk navigation ── -->
+    <a href="{{ url_for('helpdesk.dashboard') }}" class="nav-link {% if request.path == '/helpdesk/' or request.path == '/helpdesk' %}active{% endif %}"
+      style="{% if request.path in ('/helpdesk/', '/helpdesk') %}--nav-active-color: #7c3aed;{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </a>
+    <a href="{{ url_for('helpdesk.ticket_queue') }}" class="nav-link {% if '/helpdesk/tickets' in request.path and 'new' not in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Ticket Queue
+    </a>
+    <a href="{{ url_for('helpdesk.ticket_queue', view='mine') }}" class="nav-link">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      My Tickets
+    </a>
+    <a href="{{ url_for('helpdesk.ticket_new') }}" class="nav-link {% if '/helpdesk/tickets/new' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New Ticket
+    </a>
+    <a href="{{ url_for('helpdesk.reports') }}" class="nav-link {% if '/helpdesk/reports' in request.path and '/scorecard' not in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+      Reports
+    </a>
+    <a href="{{ url_for('helpdesk.agent_scorecard') }}" class="nav-link {% if '/helpdesk/scorecard' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Agent Scorecard
+    </a>
+    {% if session.get("user", {}).get("role") in ("admin", "manager") %}
+    <div class="sidebar-divider"></div>
+    <div style="padding: 4px 12px 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8;">Admin</div>
+    <a href="{{ url_for('helpdesk.categories') }}" class="nav-link {% if '/helpdesk/admin/categories' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      Categories
+    </a>
+    <a href="{{ url_for('helpdesk.sla') }}" class="nav-link {% if '/helpdesk/admin/sla' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      SLA Policies
+    </a>
+    <a href="{{ url_for('helpdesk.canned_list') }}" class="nav-link {% if '/helpdesk/admin/canned' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="13" y2="14"/></svg>
+      Canned Responses
+    </a>
+    <a href="{{ url_for('helpdesk.email_inbox') }}" class="nav-link {% if '/helpdesk/admin/email' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      Email Inbox
+    </a>
+    {% endif %}
+
+  {% else %}
+  <!-- ── Asset Management navigation ── -->
+    <a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.path in ('/', '/dashboard') %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </a>
+    <a href="{{ url_for('assets.list') }}" class="nav-link {% if '/assets/view' in request.path or request.path == '/assets/' %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor"/><circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="3" cy="18" r="1" fill="currentColor"/></svg>
+      Asset List
+    </a>
+    <a href="{{ url_for('assets.add') }}" class="nav-link {% if '/assets/add' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      Add Asset
+    </a>
+    <a href="{{ url_for('assignments.workspace') }}" class="nav-link {% if request.path == '/assignments/' or request.path == '/assignments' %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Assignments
+    </a>
+    <a href="{{ url_for('assignments.employees') }}" class="nav-link {% if '/assignments/employees' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+      Multiple Assets
+    </a>
+    <div class="sidebar-divider"></div>
+    <a href="{{ url_for('issues.list') }}" class="nav-link {% if '/issues' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Issues
+    </a>
+    <a href="{{ url_for('repairs.list') }}" class="nav-link {% if '/repairs' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      Repairs
+    </a>
+    <a href="{{ url_for('maintenance.list') }}" class="nav-link {% if '/maintenance' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Maintenance
+    </a>
+    <div class="sidebar-divider"></div>
+    <a href="{{ url_for('reports.index') }}" class="nav-link {% if '/reports' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+      Reports
+    </a>
+    <a href="{{ url_for('assets.sold') }}" class="nav-link {% if '/assets/sold' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      Sold Assets
+    </a>
+    <a href="{{ url_for('dashboard.stock') }}" class="nav-link {% if request.path == '/stock' %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h18v4H3z"/><path d="M3 10h18v4H3z"/><path d="M3 17h12v4H3z"/><circle cx="19" cy="19" r="2" fill="currentColor" stroke="none"/></svg>
+      Stock
+    </a>
+    {% if session.get("user", {}).get("role") == "admin" %}
+    <div class="sidebar-divider"></div>
+    <a href="{{ url_for('admin.activity_log') }}" class="nav-link {% if '/admin/activity-log' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Activity Log
+    </a>
+    <a href="{{ url_for('admin.roles') }}" class="nav-link {% if '/admin/roles' in request.path %}active{% endif %}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/><polyline points="16 11 18 13 22 9"/></svg>
+      Manage Roles
+    </a>
+    {% endif %}
+  {% endif %}
+  </nav>
+</aside>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="topbar-left">
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      {% if in_helpdesk %}
+      <!-- Helpdesk ticket search -->
+      <form method="GET" action="{{ url_for('helpdesk.ticket_queue') }}" style="margin-left: 16px; position: relative;">
+        <svg style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" name="q" placeholder="Search tickets..." autocomplete="off"
+          style="padding: 7px 12px 7px 32px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; width: 260px; background: #f8fafc; outline: none; font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s;"
+          onfocus="this.style.borderColor='#7c3aed';this.style.boxShadow='0 0 0 3px rgba(124,58,237,0.15)'"
+          onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow=''">
+      </form>
+      {% else %}
+      <!-- Asset search -->
+      <div style="position: relative; margin-left: 16px;">
+        <svg style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="globalSearchInput" placeholder="Search serial, model, user..." autocomplete="off"
+          style="padding: 7px 12px 7px 32px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; width: 260px; background: #f8fafc; outline: none; font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s;">
+        <div id="searchDropdown" style="display:none; position: absolute; top: calc(100% + 6px); left: 0; width: 380px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 9999; overflow: hidden;"></div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="topbar-right">
+      <div class="notif-bell" id="notifBell" role="button" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+        <div class="notif-dropdown" id="notifDropdown">
+          <div class="notif-header">Notifications</div>
+          <div id="notifList"><div class="notif-empty">Loading…</div></div>
+        </div>
+      </div>
+      {% set uname = session.get("user", {}).get("name") or "User" %}
+      {% set role = session.get("user", {}).get("role", "viewer") %}
+      <div class="user-block">
+        <div class="user-avatar">{{ (uname[:1])|upper }}</div>
+        <div class="user-meta">
+          <div class="user-name">{{ uname }} <span class="role-badge role-{{ role }}">{{ role }}</span></div>
+          <a href="{{ url_for('auth.logout') }}" class="user-signout">Sign out</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="main-content">
+  <div class="container">
+{% else %}
+<div class="auth-minimal">
+{% endif %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-messages">
+    {% for category, msg in messages %}
+    <div class="flash flash-{{ category|lower }}">
+      <span>{{ msg }}</span>
+      <button class="flash-close">×</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+{% block content %}{% endblock %}
+
+{% if session.get("user") %}
+  </div>
+</main>
+{% else %}
+</div>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/site.js') }}"></script>
+<script nonce="{{ g.csp_nonce }}">
+// Force reload when restored from bfcache (browser back/forward button).
+// Ensures stock counts and filtered asset lists always show fresh data after
+// an issue is deleted or resolved on the asset detail page.
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted) { window.location.reload(); }
+});
+</script>
+{% block scripts %}{% endblock %}
+
+{% if session.get("user") and session.get("user", {}).get("role") in ("admin", "manager") %}
+<!-- ── Manager AI Assistant Widget ── -->
+<style>
+#ai-fab{position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#6d28d9);border:none;cursor:pointer;box-shadow:0 4px 16px rgba(124,58,237,.45);display:flex;align-items:center;justify-content:center;z-index:10000;transition:transform .15s,box-shadow .15s;}
+#ai-fab:hover{transform:scale(1.08);box-shadow:0 6px 20px rgba(124,58,237,.55);}
+#ai-panel{position:fixed;bottom:88px;right:24px;width:380px;max-height:560px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.18);z-index:10000;display:none;flex-direction:column;overflow:hidden;font-family:Inter,sans-serif;}
+#ai-panel-header{padding:14px 16px;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;display:flex;align-items:center;gap:10px;}
+#ai-panel-header svg{flex-shrink:0;}
+#ai-panel-title{flex:1;font-weight:700;font-size:14px;}
+#ai-panel-close{background:none;border:none;color:#fff;cursor:pointer;padding:4px;opacity:.8;font-size:20px;line-height:1;}
+#ai-panel-close:hover{opacity:1;}
+#ai-messages{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-height:0;}
+.ai-msg{max-width:90%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.5;word-break:break-word;}
+.ai-msg-bot{background:#f1f5f9;color:#0f172a;align-self:flex-start;border-bottom-left-radius:3px;}
+.ai-msg-user{background:#7c3aed;color:#fff;align-self:flex-end;border-bottom-right-radius:3px;}
+.ai-msg-typing{background:#f1f5f9;color:#94a3b8;align-self:flex-start;font-style:italic;font-size:12px;}
+#ai-quick-btns{padding:8px 12px;border-top:1px solid #f1f5f9;display:flex;flex-wrap:wrap;gap:6px;}
+.ai-quick-btn{font-size:11px;padding:5px 10px;border:1px solid #e2e8f0;border-radius:20px;background:#f8fafc;color:#475569;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.ai-quick-btn:hover{background:#ede9fe;border-color:#c4b5fd;color:#7c3aed;}
+#ai-input-row{display:flex;gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;}
+#ai-input{flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;transition:border-color .2s;}
+#ai-input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);}
+#ai-send{background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;transition:background .15s;}
+#ai-send:hover{background:#6d28d9;}
+#ai-send:disabled{background:#c4b5fd;cursor:not-allowed;}
+</style>
+
+<button id="ai-fab" title="Manager Assistant">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
+</button>
+
+<div id="ai-panel">
+  <div id="ai-panel-header">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+    <span id="ai-panel-title">IT Manager Assistant</span>
+    <button id="ai-panel-close">×</button>
+  </div>
+  <div id="ai-messages">
+    <div class="ai-msg ai-msg-bot">Hi! I can answer questions about assets, tickets, SLA performance, warranties, and issues. What would you like to know?</div>
+  </div>
+  <div id="ai-quick-btns">
+    <button class="ai-quick-btn" data-q="How many open tickets are there right now?">Open tickets</button>
+    <button class="ai-quick-btn" data-q="What is the SLA compliance rate this month?">SLA this month</button>
+    <button class="ai-quick-btn" data-q="How many assets have expired warranty?">Expired warranty</button>
+    <button class="ai-quick-btn" data-q="Show asset status breakdown">Asset status</button>
+    <button class="ai-quick-btn" data-q="What is the average ticket resolution time this month?">Avg resolution time</button>
+    <button class="ai-quick-btn" data-q="How many open hardware or software issues are there?">Open issues</button>
+  </div>
+  <div id="ai-input-row">
+    <input id="ai-input" type="text" placeholder="Ask about assets, tickets, SLA…" autocomplete="off">
+    <button id="ai-send">Send</button>
+  </div>
+</div>
+
+<script nonce="{{ g.csp_nonce }}">
+(function() {
+  const fab = document.getElementById('ai-fab');
+  const panel = document.getElementById('ai-panel');
+  const closeBtn = document.getElementById('ai-panel-close');
+  const messages = document.getElementById('ai-messages');
+  const input = document.getElementById('ai-input');
+  const sendBtn = document.getElementById('ai-send');
+  const quickBtns = document.querySelectorAll('.ai-quick-btn');
+  const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+  let history = [];
+  let busy = false;
+
+  fab.addEventListener('click', function() {
+    const open = panel.style.display === 'flex';
+    panel.style.display = open ? 'none' : 'flex';
+    if (!open) input.focus();
+  });
+
+  closeBtn.addEventListener('click', function() {
+    panel.style.display = 'none';
+  });
+
+  quickBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (busy) return;
+      sendMessage(btn.getAttribute('data-q'));
+    });
+  });
+
+  sendBtn.addEventListener('click', function() {
+    const q = input.value.trim();
+    if (!q || busy) return;
+    input.value = '';
+    sendMessage(q);
+  });
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const q = input.value.trim();
+      if (!q || busy) return;
+      input.value = '';
+      sendMessage(q);
+    }
+  });
+
+  function addMsg(text, type) {
+    const div = document.createElement('div');
+    div.className = 'ai-msg ai-msg-' + type;
+    div.textContent = text;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+    return div;
+  }
+
+  async function sendMessage(q) {
+    busy = true;
+    sendBtn.disabled = true;
+    addMsg(q, 'user');
+    history.push({role: 'user', content: q});
+    const typing = addMsg('Thinking…', 'typing');
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+        body: JSON.stringify({messages: history})
+      });
+      const data = await res.json();
+      const reply = data.reply || 'Sorry, something went wrong.';
+      typing.remove();
+      addMsg(reply, 'bot');
+      history.push({role: 'assistant', content: reply});
+      // Keep history to last 10 exchanges to avoid huge payloads
+      if (history.length > 20) history = history.slice(-20);
+    } catch(err) {
+      typing.remove();
+      addMsg('Network error. Please try again.', 'bot');
+    }
+
+    busy = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+})();
+</script>
+{% endif %}
+
+{% if session.get("user") and not in_helpdesk %}
+<script nonce="{{ g.csp_nonce }}">
+(function() {
+  const input = document.getElementById('globalSearchInput');
+  const dropdown = document.getElementById('searchDropdown');
+  if (!input) return;
+
+  const statusColors = {instock:'#16a34a',deployed:'#2563eb',repair:'#d97706',retired:'#6b7280',sold:'#7c3aed',ordered:'#0891b2',received:'#0891b2'};
+
+  let timer;
+  input.addEventListener('input', function() {
+    clearTimeout(timer);
+    const q = this.value.trim();
+    if (q.length < 2) { dropdown.style.display = 'none'; return; }
+    timer = setTimeout(() => fetchResults(q), 220);
+  });
+
+  input.addEventListener('focus', function() {
+    if (this.value.trim().length >= 2) dropdown.style.display = 'block';
+    this.style.borderColor = '#3b82f6';
+    this.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.15)';
+  });
+  input.addEventListener('blur', function() {
+    setTimeout(() => { dropdown.style.display = 'none'; }, 200);
+    this.style.borderColor = '#e2e8f0';
+    this.style.boxShadow = '';
+  });
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      const first = dropdown.querySelector('a');
+      if (first) window.location.href = first.href;
+    }
+    if (e.key === 'Escape') { dropdown.style.display = 'none'; input.blur(); }
+  });
+
+  async function fetchResults(q) {
+    try {
+      const res = await fetch('/api/search?q=' + encodeURIComponent(q));
+      const data = await res.json();
+      renderResults(data, q);
+    } catch(e) { dropdown.style.display = 'none'; }
+  }
+
+  function renderResults(items, q) {
+    if (!items.length) {
+      dropdown.innerHTML = '<div style="padding: 16px; text-align: center; color: #94a3b8; font-size: 13px;">No assets found for "' + q + '"</div>';
+      dropdown.style.display = 'block';
+      return;
+    }
+    dropdown.innerHTML = items.map(a => {
+      const color = statusColors[a.status] || '#64748b';
+      const sub = [a.manufacturer, a.model].filter(Boolean).join(' · ');
+      const user = a.current_user ? '👤 ' + a.current_user : '';
+      return `<a href="/assets/${a.id}" class="search-result-item" style="display:flex; align-items:center; gap:12px; padding:10px 14px; text-decoration:none; color:#0f172a; border-bottom:1px solid #f1f5f9; transition:background 0.1s;">
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:600; font-size:13px;">${a.serial_number}</div>
+          <div style="font-size:12px; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sub}${user ? ' · ' + user : ''}</div>
+        </div>
+        <span style="font-size:11px; font-weight:600; color:${color}; background:${color}18; padding:2px 8px; border-radius:10px; white-space:nowrap;">${a.status}</span>
+      </a>`;
+    }).join('') + `<a href="/assets/?q=${encodeURIComponent(q)}" style="display:block; padding:10px 14px; text-align:center; font-size:12px; color:#3b82f6; text-decoration:none; background:#f8fafc;">View all results →</a>`;
+    dropdown.style.display = 'block';
+  }
+})();
+</script>
+{% endif %}
+</body>
+</html>

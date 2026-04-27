@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}Assignments{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Assignment Workspace</h1>
+    <p class="page-subtitle">{{ instock|length }} available · {{ total_deployed }} deployed to {{ deployed_by_user|length }} employee{{ 's' if deployed_by_user|length != 1 else '' }}</p>
+  </div>
+  <a href="{{ url_for('assets.add') }}" class="btn btn-primary">+ Add Asset</a>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+  <!-- Available Assets -->
+  <div>
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+      <h3 style="font-size: 16px; font-weight: 600; color: #065f46;">
+        <span style="background: #d1fae5; padding: 2px 10px; border-radius: 20px; font-size: 13px;">{{ instock|length }} In Stock</span>
+      </h3>
+    </div>
+    {% if instock %}
+    <div style="display: flex; flex-direction: column; gap: 8px; max-height: 70vh; overflow-y: auto; padding-right: 4px;">
+      {% for asset in instock %}
+      <div class="card assign-card" style="padding: 14px 16px; margin-bottom: 0; cursor: pointer;" data-asset-id="{{ asset.id }}" data-serial="{{ asset.serial_number }}" data-model="{{ asset.model }}">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <div style="font-weight: 600; font-size: 13px; color: #0f172a;">{{ asset.serial_number }}</div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">{{ asset.model }}{% if asset.manufacturer %} · {{ asset.manufacturer }}{% endif %}</div>
+            {% if asset.category %}<div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">{{ asset.category }}</div>{% endif %}
+          </div>
+          <button class="btn btn-primary" style="padding: 5px 12px; font-size: 12px; flex-shrink: 0;">Assign →</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="card" style="padding: 40px; text-align: center; border: 2px dashed #e2e8f0;">
+      <div style="font-size: 32px; margin-bottom: 8px;">📦</div>
+      <p style="color: #64748b; font-size: 14px;">No assets in stock</p>
+      <a href="{{ url_for('assets.add') }}" class="btn btn-primary" style="margin-top: 12px; font-size: 13px;">Add Asset</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Deployed Assets -->
+  <div>
+    <div style="display: flex; align-items: center; margin-bottom: 12px;">
+      <span style="background: #dbeafe; padding: 2px 10px; border-radius: 20px; font-size: 13px; font-weight: 600; color: #1e40af;">{{ total_deployed }} Deployed</span>
+    </div>
+    {% if deployed_by_user %}
+    <div style="display: flex; flex-direction: column; gap: 10px; max-height: 70vh; overflow-y: auto; padding-right: 4px;">
+      {% for user_name, items in deployed_by_user %}
+      <div class="card" style="padding: 0; margin-bottom: 0; overflow: hidden;">
+        <!-- User header -->
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 30px; height: 30px; border-radius: 50%; background: #1e40af; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0;">
+              {{ user_name[0].upper() }}
+            </div>
+            <div>
+              <div style="font-weight: 600; font-size: 13px; color: #0f172a;">{{ user_name }}</div>
+              <div style="font-size: 11px; color: #64748b;">{{ items|length }} asset{{ 's' if items|length != 1 else '' }} assigned</div>
+            </div>
+          </div>
+          <span style="background: #dbeafe; color: #1e40af; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px;">{{ items|length }}</span>
+        </div>
+        <!-- Assets list -->
+        {% for item in items %}
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; {% if not loop.last %}border-bottom: 1px solid #f1f5f9;{% endif %}">
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: #0f172a;">{{ item.asset.serial_number }}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 1px;">
+              {{ item.asset.model }}{% if item.asset.category %} · {{ item.asset.category }}{% endif %}
+            </div>
+            <div style="font-size: 11px; color: #94a3b8; margin-top: 1px;">Since {{ item.assignment.assigned_date.strftime('%b %d, %Y') if item.assignment.assigned_date else '—' }}</div>
+          </div>
+          <div style="display: flex; gap: 5px; align-items: center; flex-shrink: 0;">
+            <a href="{{ url_for('assets.detail', asset_id=item.asset.id) }}" class="btn btn-secondary" style="padding: 3px 9px; font-size: 11px;">View</a>
+            {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+            <button class="btn-return-asset btn btn-secondary" data-asgn-id="{{ item.assignment.id }}" data-user="{{ item.assignment.user_name }}" data-serial="{{ item.asset.serial_number }}" style="padding: 3px 9px; font-size: 11px; color: #dc2626;">Return</button>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="card" style="padding: 40px; text-align: center; border: 2px dashed #e2e8f0;">
+      <div style="font-size: 32px; margin-bottom: 8px;">🎉</div>
+      <p style="color: #64748b; font-size: 14px;">No assets currently deployed</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Modal: Assign Asset -->
+<div class="modal-overlay" id="assign-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Assign Asset</h3>
+      <button id="btn-close-assign-modal" class="modal-close">✕</button>
+    </div>
+    <div style="font-size: 13px; color: #64748b; margin-bottom: 16px;" id="assign-asset-info"></div>
+    <form id="assign-form">
+      <input type="hidden" id="assign-asset-id" name="asset_id">
+      <div class="form-group">
+        <label class="form-label">Employee Name *</label>
+        <input type="text" name="user_name" class="form-control" required placeholder="Full name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Assigned Date</label>
+        <input type="date" name="assigned_date" class="form-control" value="{{ now().strftime('%Y-%m-%d') if now else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Condition</label>
+        <select name="condition_on_issue" class="form-control">
+          <option value="Good">Good</option><option value="Fair">Fair</option><option value="Poor">Poor</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <input type="text" name="notes" class="form-control" placeholder="Optional">
+      </div>
+      <button type="button" id="btn-do-assign" class="btn btn-primary" style="width: 100%;">Confirm Assignment</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Return Asset -->
+<div class="modal-overlay" id="return-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Return Asset</h3>
+      <button id="btn-close-return-modal" class="modal-close">✕</button>
+    </div>
+    <div style="font-size: 13px; color: #64748b; margin-bottom: 16px;" id="return-info"></div>
+    <form id="return-form">
+      <div class="form-group">
+        <label class="form-label">Return Date</label>
+        <input type="date" name="returned_date" class="form-control" value="{{ now().strftime('%Y-%m-%d') if now else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Condition on Return</label>
+        <select name="condition_on_return" class="form-control">
+          <option value="Good">Good</option><option value="Fair">Fair</option><option value="Damaged">Damaged</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <input type="text" name="notes" class="form-control" placeholder="Optional notes">
+      </div>
+      <button type="button" id="btn-do-return" class="btn btn-danger" style="width: 100%;">Confirm Return to Stock</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ g.csp_nonce }}">
+// Override site.js modal functions (this runs AFTER site.js)
+window.openModal = function(idOrEl) {
+  const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
+  if (el) { el.classList.add('open'); el.style.display = 'flex'; }
+};
+window.closeModal = function(idOrEl) {
+  const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
+  if (el) { el.classList.remove('open'); el.style.display = 'none'; }
+};
+
+function openAssignModal(assetId, serial, model) {
+  document.getElementById('assign-asset-id').value = assetId;
+  document.getElementById('assign-asset-info').textContent = serial + (model ? ' · ' + model : '');
+  openModal('assign-modal');
+}
+
+let returnAsgId = null;
+function openReturnModal(asgId, userName, serial) {
+  returnAsgId = asgId;
+  document.getElementById('return-info').textContent = serial + ' — assigned to ' + userName;
+  openModal('return-modal');
+}
+
+// Wire up assign cards (click anywhere on card)
+document.addEventListener('click', function(e) {
+  const card = e.target.closest('.assign-card');
+  if (card) openAssignModal(parseInt(card.dataset.assetId), card.dataset.serial || '', card.dataset.model || '');
+});
+
+// Wire up return buttons
+document.querySelectorAll('.btn-return-asset').forEach(btn =>
+  btn.addEventListener('click', function() {
+    openReturnModal(parseInt(this.dataset.asgnId), this.dataset.user, this.dataset.serial);
+  }));
+
+// Submit buttons inside modals
+document.getElementById('btn-do-assign')?.addEventListener('click', submitAssign);
+document.getElementById('btn-do-return')?.addEventListener('click', submitReturn);
+
+// Modal close buttons and overlay click-to-close
+['assign-modal', 'return-modal'].forEach(id => {
+  const overlay = document.getElementById(id);
+  if (!overlay) return;
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(id); });
+  overlay.querySelector('.modal-close')?.addEventListener('click', () => closeModal(id));
+});
+
+const csrf = () => document.querySelector('meta[name="csrf-token"]').content;
+
+async function submitAssign() {
+  const form = document.getElementById('assign-form');
+  const data = new FormData(form);
+  const res = await fetch('{{ url_for("assignments.assign") }}', { method: 'POST', headers: { 'X-CSRFToken': csrf() }, body: data });
+  const json = await res.json();
+  if (json.ok) { location.reload(); } else { alert(json.error || 'Failed'); }
+}
+
+async function submitReturn() {
+  if (!returnAsgId) return;
+  const form = document.getElementById('return-form');
+  const data = new FormData(form);
+  const res = await fetch(`/assignments/${returnAsgId}/return`, { method: 'POST', headers: { 'X-CSRFToken': csrf() }, body: data });
+  const json = await res.json();
+  if (json.ok) { location.reload(); } else { alert(json.error || 'Failed'); }
+}
+</script>
+{% endblock %}

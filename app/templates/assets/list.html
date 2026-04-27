@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Assets{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Asset Inventory</h1>
+    <p class="page-subtitle">{{ total }} asset{{ 's' if total != 1 else '' }} found</p>
+  </div>
+  <div class="page-actions" style="display: flex; gap: 8px;">
+    {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+    <a href="{{ url_for('assets.bulk_upload') }}" class="btn btn-secondary">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+      Bulk Upload
+    </a>
+    <a href="{{ url_for('assets.add') }}" class="btn btn-primary">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Asset
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Active filter chips from Stock Intelligence -->
+{% if model_f or issues_f %}
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+  <span style="font-size: 12px; color: #94a3b8; font-weight: 500;">Filtered from Stock Intelligence:</span>
+  {% if model_f %}
+  <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 20px; font-size: 12px; font-weight: 600; color: #1d4ed8;">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    {{ model_f }}
+  </span>
+  {% endif %}
+  {% if issues_f == '1' %}
+  <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 20px; font-size: 12px; font-weight: 600; color: #dc2626;">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+    Has Open Issues
+  </span>
+  {% elif issues_f == '0' %}
+  <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 20px; font-size: 12px; font-weight: 600; color: #15803d;">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    No Issues (Working)
+  </span>
+  {% endif %}
+  {% if status_f %}
+  <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 20px; font-size: 12px; font-weight: 600; color: #475569;">
+    {{ status_f.title() }}
+  </span>
+  {% endif %}
+  <a href="{{ url_for('assets.list') }}" style="font-size: 12px; color: #94a3b8; text-decoration: none; margin-left: 4px;">Clear all ×</a>
+</div>
+{% endif %}
+
+<!-- Filters -->
+<form method="get" class="filters-bar">
+  {% if model_f %}<input type="hidden" name="model_f" value="{{ model_f }}">{% endif %}
+  {% if issues_f %}<input type="hidden" name="issues" value="{{ issues_f }}">{% endif %}
+  <input type="text" name="q" value="{{ q }}" placeholder="Search serial, model, user..." class="filter-input" style="flex: 1; min-width: 200px;">
+  <select name="status" class="filter-input">
+    <option value="">All Status</option>
+    {% for s in valid_statuses %}
+    <option value="{{ s }}" {% if status_f == s %}selected{% endif %}>{{ s.title() }}</option>
+    {% endfor %}
+  </select>
+  <select name="category" class="filter-input">
+    <option value="">All Categories</option>
+    {% for cat in categories %}
+    <option value="{{ cat }}" {% if category_f == cat %}selected{% endif %}>{{ cat }}</option>
+    {% endfor %}
+  </select>
+  <select name="warranty" class="filter-input">
+    <option value="">All Warranty</option>
+    <option value="active" {% if warranty_f == 'active' %}selected{% endif %}>Active</option>
+    <option value="expiring" {% if warranty_f == 'expiring' %}selected{% endif %}>Expiring Soon</option>
+    <option value="expired" {% if warranty_f == 'expired' %}selected{% endif %}>Expired</option>
+  </select>
+  <button type="submit" class="btn btn-primary">Filter</button>
+  {% if q or status_f or category_f or warranty_f or model_f or issues_f %}
+  <a href="{{ url_for('assets.list') }}" class="btn btn-secondary">Clear</a>
+  {% endif %}
+  <a href="{{ url_for('assets.export') }}?q={{ q }}&status={{ status_f }}&category={{ category_f }}&warranty={{ warranty_f }}&format=csv" class="btn btn-secondary" title="Export CSV">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    CSV
+  </a>
+</form>
+
+<!-- Bulk action bar (shown when items selected) -->
+<div id="bulk-bar" style="display:none; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; align-items: center; gap: 12px;">
+  <span id="bulk-count" style="font-weight: 600; color: #1d4ed8;">0 selected</span>
+  {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+  <select id="bulk-status-select" class="filter-input" style="width: auto;">
+    <option value="">Change Status...</option>
+    {% for s in valid_statuses %}
+    <option value="{{ s }}">→ {{ s.title() }}</option>
+    {% endfor %}
+  </select>
+  <button id="btn-bulk-status" class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;">Apply Status</button>
+  {% endif %}
+  {% if session.get('user', {}).get('role') == 'admin' %}
+  <button id="btn-bulk-delete" class="btn btn-danger" style="padding: 6px 12px; font-size: 13px;">Delete Selected</button>
+  {% endif %}
+</div>
+
+<div class="card" style="padding: 0; overflow: hidden;">
+  {% if assets %}
+  <table class="table">
+    <thead>
+      <tr>
+        {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+        <th style="width: 40px;"><input type="checkbox" id="select-all" style="cursor: pointer;"></th>
+        {% endif %}
+        <th>Serial / Tag</th>
+        <th>Model</th>
+        <th>Category</th>
+        <th>Status</th>
+        <th>Assigned To</th>
+        <th>Warranty</th>
+        <th>Issues</th>
+        <th style="width: 80px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for asset in assets %}
+      <tr class="table-row-hover" data-asset-id="{{ asset.id }}">
+        {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+        <td><input type="checkbox" class="asset-checkbox" value="{{ asset.id }}" style="cursor: pointer;"></td>
+        {% endif %}
+        <td>
+          <div style="font-weight: 600; font-size: 13px; color: #0f172a;">{{ asset.serial_number }}</div>
+          {% if asset.asset_tag %}<div style="font-size: 12px; color: #64748b;">{{ asset.asset_tag }}</div>{% endif %}
+        </td>
+        <td>
+          <div style="font-weight: 500;">{{ asset.model or '—' }}</div>
+          <div style="font-size: 12px; color: #64748b;">{{ asset.manufacturer or '' }}</div>
+        </td>
+        <td style="color: #64748b; font-size: 13px;">{{ asset.category or '—' }}</td>
+        <td><span class="badge-status-{{ asset.status }}">{{ asset.status.title() }}</span></td>
+        <td style="font-size: 13px;">
+          {% if asset.active_assignment %}
+          <span style="color: #0f172a;">{{ asset.active_assignment.user_name }}</span>
+          {% else %}
+          <span style="color: #94a3b8;">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if asset.warranty_expiry %}
+          {% set ws = asset.warranty_state %}
+          <span class="badge-warranty-{{ ws }}" style="font-size: 12px;">
+            {% if ws == 'active' %}✓ Active
+            {% elif ws == 'expiring' %}⚠ Expiring
+            {% elif ws == 'expired' %}✗ Expired
+            {% else %}—{% endif %}
+          </span>
+          {% else %}
+          <span style="color: #94a3b8; font-size: 12px;">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if asset.open_issues_count > 0 %}
+          <span style="background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600;">{{ asset.open_issues_count }}</span>
+          {% else %}
+          <span style="color: #94a3b8; font-size: 12px;">—</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;">View</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state" style="padding: 60px 0; text-align: center;">
+    <div style="font-size: 40px; margin-bottom: 12px;">📦</div>
+    <p style="color: #64748b; font-size: 15px;">No assets found</p>
+    {% if q or status_f %}
+    <a href="{{ url_for('assets.list') }}" style="color: #3b82f6; text-decoration: none; font-size: 14px;">Clear filters</a>
+    {% else %}
+    <a href="{{ url_for('assets.add') }}" class="btn btn-primary" style="margin-top: 16px;">Add First Asset</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Pagination -->
+{% if pages > 1 %}
+<div class="pagination" style="justify-content: center; margin-top: 20px;">
+  {% if page > 1 %}
+  <a href="?page={{ page-1 }}&q={{ q }}&status={{ status_f }}&category={{ category_f }}&warranty={{ warranty_f }}" class="page-link">← Prev</a>
+  {% endif %}
+  {% for p in range(1, pages+1) %}
+  {% if p == page %}
+  <span class="page-link active">{{ p }}</span>
+  {% elif p <= 2 or p >= pages-1 or (p >= page-2 and p <= page+2) %}
+  <a href="?page={{ p }}&q={{ q }}&status={{ status_f }}&category={{ category_f }}&warranty={{ warranty_f }}" class="page-link">{{ p }}</a>
+  {% elif p == 3 or p == pages-2 %}
+  <span class="page-link" style="border: none; cursor: default;">…</span>
+  {% endif %}
+  {% endfor %}
+  {% if page < pages %}
+  <a href="?page={{ page+1 }}&q={{ q }}&status={{ status_f }}&category={{ category_f }}&warranty={{ warranty_f }}" class="page-link">Next →</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<script nonce="{{ g.csp_nonce }}">
+// Select all
+const selectAll = document.getElementById('select-all');
+const checkboxes = document.querySelectorAll('.asset-checkbox');
+const bulkBar = document.getElementById('bulk-bar');
+const bulkCount = document.getElementById('bulk-count');
+
+function updateBulkBar() {
+  const checked = document.querySelectorAll('.asset-checkbox:checked');
+  if (checked.length > 0) {
+    bulkBar.style.display = 'flex';
+    bulkCount.textContent = checked.length + ' selected';
+  } else {
+    bulkBar.style.display = 'none';
+  }
+}
+
+if (selectAll) {
+  selectAll.addEventListener('change', function() {
+    checkboxes.forEach(cb => cb.checked = this.checked);
+    updateBulkBar();
+  });
+}
+checkboxes.forEach(cb => cb.addEventListener('change', updateBulkBar));
+
+document.getElementById('btn-bulk-status')?.addEventListener('click', () => bulkAction('status_change'));
+document.getElementById('btn-bulk-delete')?.addEventListener('click', () => bulkAction('delete'));
+
+async function bulkAction(action) {
+  const checked = Array.from(document.querySelectorAll('.asset-checkbox:checked')).map(cb => cb.value);
+  if (!checked.length) return;
+
+  let body = { action, asset_ids: checked };
+  if (action === 'status_change') {
+    const sel = document.getElementById('bulk-status-select').value;
+    if (!sel) { alert('Please select a status'); return; }
+    body.new_status = sel;
+  } else if (action === 'delete') {
+    if (!confirm(`Delete ${checked.length} assets? This cannot be undone.`)) return;
+  }
+
+  const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+  const res = await fetch('{{ url_for("assets.bulk_action") }}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (data.ok) {
+    location.reload();
+  } else {
+    alert(data.error || 'Action failed');
+  }
+}
+</script>
+{% endblock %}

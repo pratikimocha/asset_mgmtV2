@@ -1,0 +1,520 @@
+{% extends "base.html" %}
+{% block title %}Ticket Categories{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Ticket Categories</h1>
+    <p class="page-subtitle">Organise tickets by topic — supports parent → sub-category hierarchy</p>
+  </div>
+  <button id="btn-add-cat" class="btn btn-primary" style="background:#7c3aed;border-color:#7c3aed;">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Category
+  </button>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for c, msg in messages %}
+<div style="margin-bottom:14px;padding:11px 16px;border-radius:8px;background:{{ '#d1fae5' if c=='success' else '#fee2e2' }};color:{{ '#065f46' if c=='success' else '#991b1b' }};font-size:13px;">{{ msg }}</div>
+{% endfor %}
+{% endwith %}
+
+<!-- Summary strip -->
+<div style="display:flex;gap:14px;margin-bottom:22px;flex-wrap:wrap;">
+  <div class="card" style="padding:12px 18px;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:22px;font-weight:800;color:#7c3aed;">{{ categories|length }}</span>
+    <span style="font-size:12px;color:#64748b;">Categories</span>
+  </div>
+  <div class="card" style="padding:12px 18px;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+    {% set sub_count = namespace(n=0) %}
+    {% for c in categories %}{% set sub_count.n = sub_count.n + c.children.count() %}{% endfor %}
+    <span style="font-size:22px;font-weight:800;color:#0891b2;">{{ sub_count.n }}</span>
+    <span style="font-size:12px;color:#64748b;">Sub-categories</span>
+  </div>
+  <div class="card" style="padding:12px 18px;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:22px;font-weight:800;color:#16a34a;">{{ open_counts.values()|sum }}</span>
+    <span style="font-size:12px;color:#64748b;">Open Tickets</span>
+  </div>
+  <div class="card" style="padding:12px 18px;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:22px;font-weight:800;color:#ca8a04;">{{ categories|selectattr('sla_policies')|list|length }}</span>
+    <span style="font-size:12px;color:#64748b;">With SLA</span>
+  </div>
+</div>
+
+<!-- Category list (tree view) -->
+{% if categories %}
+<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
+  {% for cat in categories %}
+  {% set open_t = open_counts.get(cat.id, 0) %}
+  {% set total_t = total_counts.get(cat.id, 0) %}
+  {% set sla_n = cat.sla_policies.count() %}
+  {% set children = cat.children.filter_by(is_active=True).all() %}
+
+  <div id="cat-card-{{ cat.id }}" class="card" style="padding:0;overflow:hidden;">
+    <!-- Color stripe -->
+    <div style="height:4px;background:{{ cat.color }};"></div>
+    <div style="padding:16px 20px;">
+      <!-- Parent category row -->
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="width:38px;height:38px;border-radius:10px;background:{{ cat.color }}18;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">
+          {{ cat.icon or '🏷️' }}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-weight:700;font-size:15px;color:#0f172a;">{{ cat.name }}</span>
+            {% if not cat.is_active %}<span style="font-size:11px;background:#f1f5f9;color:#94a3b8;padding:2px 7px;border-radius:6px;">Inactive</span>{% endif %}
+            <span style="font-size:11px;background:{{ '#ede9fe' if open_t > 0 else '#f8fafc' }};color:{{ '#7c3aed' if open_t > 0 else '#94a3b8' }};padding:2px 8px;border-radius:10px;font-weight:600;">{{ open_t }} open</span>
+            {% if sla_n > 0 %}<span style="font-size:11px;background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:10px;font-weight:600;">{{ sla_n }} SLA rule{{ 's' if sla_n != 1 }}</span>{% endif %}
+          </div>
+          {% if cat.description %}<div style="font-size:12px;color:#64748b;margin-top:2px;">{{ cat.description }}</div>{% endif %}
+        </div>
+        <!-- Actions -->
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="btn btn-secondary btn-add-subcat" style="font-size:12px;padding:4px 10px;"
+            data-id="{{ cat.id }}" data-name="{{ cat.name|e }}" data-color="{{ cat.color }}">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:3px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Sub-category
+          </button>
+          <button class="btn btn-secondary btn-edit-cat" style="font-size:12px;padding:4px 10px;"
+            data-id="{{ cat.id }}" data-cat='{{ cat.to_dict()|tojson }}'>Edit</button>
+          <button class="btn btn-secondary btn-delete-cat" style="font-size:12px;padding:4px 10px;color:#ef4444;border-color:#fecaca;"
+            data-id="{{ cat.id }}" data-name="{{ cat.name|e }}" data-count="{{ total_t }}">Delete</button>
+        </div>
+      </div>
+
+      <!-- Sub-categories -->
+      {% if children %}
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #f1f5f9;display:flex;flex-direction:column;gap:6px;">
+        {% for sub in children %}
+        {% set sub_open = open_counts.get(sub.id, 0) %}
+        {% set sub_total = total_counts.get(sub.id, 0) %}
+        <div id="cat-card-{{ sub.id }}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:#f8fafc;border:1px solid #f1f5f9;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2" style="flex-shrink:0;margin-left:8px;"><polyline points="9 18 3 12 9 6"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+          <span style="font-size:16px;">{{ sub.icon or '📌' }}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+              <span style="font-size:13px;font-weight:600;color:#0f172a;">{{ sub.name }}</span>
+              {% if not sub.is_active %}<span style="font-size:10px;background:#f1f5f9;color:#94a3b8;padding:1px 6px;border-radius:5px;">Inactive</span>{% endif %}
+              {% if sub_open > 0 %}<span style="font-size:11px;background:#ede9fe;color:#7c3aed;padding:1px 7px;border-radius:8px;font-weight:600;">{{ sub_open }} open</span>{% endif %}
+            </div>
+            {% if sub.description %}<div style="font-size:11px;color:#94a3b8;margin-top:1px;">{{ sub.description }}</div>{% endif %}
+          </div>
+          <div style="display:flex;gap:5px;flex-shrink:0;">
+            <button class="btn btn-secondary btn-edit-cat" style="font-size:11px;padding:3px 8px;"
+              data-id="{{ sub.id }}" data-cat='{{ sub.to_dict()|tojson }}'>Edit</button>
+            <button class="btn btn-secondary btn-delete-cat" style="font-size:11px;padding:3px 8px;color:#ef4444;border-color:#fecaca;"
+              data-id="{{ sub.id }}" data-name="{{ sub.name|e }}" data-count="{{ sub_total }}">Delete</button>
+          </div>
+        </div>
+        {% endfor %}
+        <!-- Inactive children notice -->
+        {% set inactive_children = cat.children.filter_by(is_active=False).all() %}
+        {% if inactive_children %}
+        <div style="font-size:11px;color:#94a3b8;padding:4px 12px 0 32px;">+ {{ inactive_children|length }} inactive sub-categor{{ 'ies' if inactive_children|length != 1 else 'y' }} hidden</div>
+        {% endif %}
+      </div>
+      {% else %}
+      <div style="margin-top:10px;padding:8px 12px;border-radius:8px;background:#f8fafc;border:1px dashed #e2e8f0;font-size:12px;color:#94a3b8;text-align:center;">
+        No sub-categories —
+        <button class="btn-add-subcat" style="background:none;border:none;color:#7c3aed;font-size:12px;font-weight:600;cursor:pointer;padding:0;"
+          data-id="{{ cat.id }}" data-name="{{ cat.name|e }}" data-color="{{ cat.color }}">add one</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div style="text-align:center;padding:80px 20px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;">
+  <div style="font-size:52px;margin-bottom:14px;">🏷️</div>
+  <h3 style="color:#0f172a;font-size:18px;font-weight:600;margin-bottom:8px;">No categories yet</h3>
+  <p style="color:#64748b;margin-bottom:20px;font-size:14px;">Categories help route tickets to the right team and apply the correct SLA</p>
+  <button id="btn-add-cat-empty" class="btn btn-primary" style="background:#7c3aed;border-color:#7c3aed;">Add First Category</button>
+</div>
+{% endif %}
+
+<!-- Quick-start presets -->
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:18px 22px;">
+  <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;margin-bottom:12px;">Quick-start: common categories</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    {% set presets = [('💻','Hardware','Hardware and device issues'),('📧','Email & Communication','Email, Slack, calendar problems'),('🌐','Network & VPN','Connectivity, VPN, Wi-Fi issues'),('🔐','Access & Permissions','Account access, permissions, passwords'),('⚙️','Software & Apps','Application errors, installations'),('🖨️','Printers & Peripherals','Printers, scanners, keyboards'),('📱','Mobile Devices','Phones, tablets, mobile apps'),('🚨','Incident','Critical incidents and outages')] %}
+    {% for icon, name, desc in presets %}
+    <button class="btn-preset-cat"
+      data-icon="{{ icon }}" data-name="{{ name }}" data-desc="{{ desc }}"
+      style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #e2e8f0;border-radius:20px;background:#fff;font-size:12px;color:#475569;cursor:pointer;font-family:inherit;transition:all 0.15s;">
+      {{ icon }} {{ name }}
+    </button>
+    {% endfor %}
+  </div>
+</div>
+
+
+<!-- ── Add/Sub-Category Modal ── -->
+<div class="modal-overlay" id="add-cat-modal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h3 class="modal-title" id="add-modal-title">Add Category</h3>
+      <button class="modal-close btn-modal-close" data-modal="add-cat-modal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form method="POST" action="{{ url_for('helpdesk.categories_add') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="parent_id" id="add-parent-id" value="">
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- Parent badge (shown when adding sub-category) -->
+        <div id="parent-badge" style="display:none;padding:8px 12px;background:#ede9fe;border-radius:8px;font-size:13px;color:#7c3aed;font-weight:600;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><polyline points="9 18 3 12 9 6"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+          Sub-category of: <span id="parent-badge-name"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Name <span style="color:#ef4444">*</span></label>
+          <input type="text" name="name" id="add-name" class="form-control" placeholder="e.g. Office 365 Issue" required>
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Slug: <span id="slug-preview" style="font-family:monospace;color:#7c3aed;">—</span></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea name="description" id="add-desc" class="form-control" rows="2" placeholder="What kind of tickets belong here?"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Icon</label>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;" id="icon-grid">
+            {% for emoji in ['💻','🖥️','📱','🖨️','📷','🌐','🔐','📧','🛠️','⚙️','📋','🗂️','💡','🚨','📞','🔋','💾','⌨️','🔇','⚠️','👤','📊','🏢','🔧','📌','🔖','📝','🖱️','🗃️','🖇️'] %}
+            <button type="button" class="btn-icon-pick" data-emoji="{{ emoji }}" data-grid="add"
+              style="width:36px;height:36px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8fafc;font-size:18px;cursor:pointer;transition:all 0.1s;display:flex;align-items:center;justify-content:center;">{{ emoji }}</button>
+            {% endfor %}
+          </div>
+          <input type="text" name="icon" id="add-icon" class="form-control" placeholder="Or type custom emoji" style="font-size:13px;">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Color</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+            {% set palette = ['#7c3aed','#2563eb','#0891b2','#059669','#16a34a','#ca8a04','#dc2626','#ea580c','#db2777','#9333ea','#475569','#1e293b'] %}
+            {% for col in palette %}
+            <button type="button" class="btn-color-pick" data-color="{{ col }}" data-target="add"
+              style="width:28px;height:28px;border-radius:6px;background:{{ col }};border:2px solid transparent;cursor:pointer;transition:transform 0.1s;"></button>
+            {% endfor %}
+            <label style="width:28px;height:28px;border-radius:6px;border:2px dashed #e2e8f0;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+              <span style="font-size:14px;">+</span>
+              <input type="color" id="add-color-custom" style="position:absolute;opacity:0;width:0;height:0;">
+            </label>
+          </div>
+          <input type="hidden" name="color" id="add-color" value="#7c3aed">
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+            <span style="width:16px;height:16px;border-radius:4px;background:#7c3aed;display:inline-block;" id="color-swatch"></span>
+            <span style="font-size:12px;color:#64748b;font-family:monospace;" id="color-hex">#7c3aed</span>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Sort Order</label>
+            <input type="number" name="sort_order" class="form-control" value="0" min="0" style="font-size:13px;">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="opacity:0;">Status</label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;height:38px;">
+              <input type="checkbox" name="is_active_add" value="1" checked style="width:15px;height:15px;">
+              Active immediately
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-modal-close" data-modal="add-cat-modal">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="background:#7c3aed;border-color:#7c3aed;" id="add-submit-btn">Create Category</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Edit Modal ── -->
+<div class="modal-overlay" id="edit-cat-modal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Edit Category</h3>
+      <button class="modal-close btn-modal-close" data-modal="edit-cat-modal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="edit-cat-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- Parent category picker -->
+        <div class="form-group">
+          <label class="form-label">Parent Category <span style="font-size:11px;color:#94a3b8;">(leave empty for top-level)</span></label>
+          <select name="parent_id" id="edit-parent" class="form-control" style="font-size:13px;">
+            <option value="">— Top-level category —</option>
+            {% for c in all_cats %}
+            {% if c.parent_id is none %}
+            <option value="{{ c.id }}">{{ c.icon or '' }} {{ c.name }}</option>
+            {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input type="text" name="name" id="edit-name" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea name="description" id="edit-desc" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Icon</label>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;" id="edit-icon-grid">
+            {% for emoji in ['💻','🖥️','📱','🖨️','📷','🌐','🔐','📧','🛠️','⚙️','📋','🗂️','💡','🚨','📞','🔋','💾','⌨️','🔇','⚠️','👤','📊','🏢','🔧','📌','🔖','📝','🖱️','🗃️','🖇️'] %}
+            <button type="button" class="btn-icon-pick" data-emoji="{{ emoji }}" data-grid="edit"
+              style="width:36px;height:36px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8fafc;font-size:18px;cursor:pointer;transition:all 0.1s;display:flex;align-items:center;justify-content:center;">{{ emoji }}</button>
+            {% endfor %}
+          </div>
+          <input type="text" name="icon" id="edit-icon" class="form-control" placeholder="Emoji or text" style="font-size:13px;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Color</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+            {% for col in ['#7c3aed','#2563eb','#0891b2','#059669','#16a34a','#ca8a04','#dc2626','#ea580c','#db2777','#9333ea','#475569','#1e293b'] %}
+            <button type="button" class="btn-color-pick" data-color="{{ col }}" data-target="edit"
+              style="width:28px;height:28px;border-radius:6px;background:{{ col }};border:2px solid transparent;cursor:pointer;transition:transform 0.1s;"></button>
+            {% endfor %}
+            <label style="width:28px;height:28px;border-radius:6px;border:2px dashed #e2e8f0;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+              <span style="font-size:14px;">+</span>
+              <input type="color" id="edit-color-custom" style="position:absolute;opacity:0;width:0;height:0;">
+            </label>
+          </div>
+          <input type="hidden" name="color" id="edit-color" value="#7c3aed">
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+            <span style="width:16px;height:16px;border-radius:4px;display:inline-block;" id="edit-color-swatch"></span>
+            <span style="font-size:12px;color:#64748b;font-family:monospace;" id="edit-color-hex"></span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Sort Order</label>
+            <input type="number" name="sort_order" id="edit-sort" class="form-control" min="0" style="font-size:13px;">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="opacity:0;">Status</label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;height:38px;">
+              <input type="checkbox" name="is_active" id="edit-active" value="1" style="width:15px;height:15px;">
+              Active
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-modal-close" data-modal="edit-cat-modal">Cancel</button>
+        <button type="button" id="btn-submit-edit" class="btn btn-primary" style="background:#7c3aed;border-color:#7c3aed;">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ g.csp_nonce }}">
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+let editCatId = null;
+
+function slugify(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
+function updateSlug(v) { document.getElementById('slug-preview').textContent = slugify(v) || '—'; }
+
+// ── Add modal ──
+function openAddModal(parentId, parentName, parentColor) {
+  document.getElementById('add-name').value = '';
+  document.getElementById('add-desc').value = '';
+  document.getElementById('add-icon').value = '';
+  document.getElementById('slug-preview').textContent = '—';
+  document.querySelectorAll('#icon-grid .btn-icon-pick').forEach(function(b) {
+    b.style.borderColor='#e2e8f0'; b.style.background='#f8fafc'; delete b.dataset.sel;
+  });
+  if (parentId) {
+    document.getElementById('add-parent-id').value = parentId;
+    document.getElementById('add-modal-title').textContent = 'Add Sub-category';
+    document.getElementById('add-submit-btn').textContent = 'Create Sub-category';
+    var badge = document.getElementById('parent-badge');
+    badge.style.display = 'block';
+    document.getElementById('parent-badge-name').textContent = parentName;
+    badge.style.borderLeft = '3px solid ' + (parentColor || '#7c3aed');
+    selectColor(parentColor || '#7c3aed');
+  } else {
+    document.getElementById('add-parent-id').value = '';
+    document.getElementById('add-modal-title').textContent = 'Add Category';
+    document.getElementById('add-submit-btn').textContent = 'Create Category';
+    document.getElementById('parent-badge').style.display = 'none';
+    selectColor('#7c3aed');
+  }
+  openModal('add-cat-modal');
+}
+
+function prefillAdd(icon, name, desc) {
+  openAddModal(null);
+  document.getElementById('add-name').value = name;
+  document.getElementById('add-desc').value = desc;
+  document.getElementById('add-icon').value = icon;
+  updateSlug(name);
+  document.querySelectorAll('#icon-grid .btn-icon-pick').forEach(function(b) {
+    if (b.dataset.emoji === icon) { b.style.borderColor='#7c3aed'; b.style.background='#ede9fe'; b.dataset.sel='1'; }
+  });
+}
+
+function selectIcon(grid, btn, emoji) {
+  var inputId = grid === 'edit' ? 'edit-icon' : 'add-icon';
+  var gridId  = grid === 'edit' ? 'edit-icon-grid' : 'icon-grid';
+  document.getElementById(inputId).value = emoji;
+  document.querySelectorAll('#' + gridId + ' .btn-icon-pick').forEach(function(b) {
+    b.style.borderColor='#e2e8f0'; b.style.background='#f8fafc'; delete b.dataset.sel;
+  });
+  btn.style.borderColor='#7c3aed'; btn.style.background='#ede9fe'; btn.dataset.sel='1';
+}
+
+function selectColor(hex) {
+  document.getElementById('add-color').value = hex;
+  document.getElementById('color-swatch').style.background = hex;
+  document.getElementById('color-hex').textContent = hex;
+}
+function selectColorEdit(hex) {
+  document.getElementById('edit-color').value = hex;
+  document.getElementById('edit-color-swatch').style.background = hex;
+  document.getElementById('edit-color-hex').textContent = hex;
+}
+
+// ── Edit modal ──
+function openEditModal(id, data) {
+  editCatId = id;
+  document.getElementById('edit-name').value = data.name || '';
+  document.getElementById('edit-desc').value = data.description || '';
+  document.getElementById('edit-icon').value = data.icon || '';
+  document.getElementById('edit-sort').value = data.sort_order || 0;
+  document.getElementById('edit-active').checked = data.is_active !== false;
+  document.getElementById('edit-parent').value = data.parent_id || '';
+  selectColorEdit(data.color || '#7c3aed');
+  document.querySelectorAll('#edit-icon-grid .btn-icon-pick').forEach(function(b) {
+    b.style.borderColor='#e2e8f0'; b.style.background='#f8fafc'; delete b.dataset.sel;
+    if (b.dataset.emoji === (data.icon || '')) { b.style.borderColor='#7c3aed'; b.style.background='#ede9fe'; b.dataset.sel='1'; }
+  });
+  openModal('edit-cat-modal');
+}
+
+function submitEdit() {
+  if (!editCatId) return;
+  var fd = new FormData(document.getElementById('edit-cat-form'));
+  if (!document.getElementById('edit-active').checked) fd.delete('is_active');
+  fetch('/helpdesk/admin/categories/' + editCatId + '/edit', {
+    method: 'POST', headers: { 'X-CSRFToken': CSRF }, body: fd
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) { closeModal('edit-cat-modal'); location.reload(); }
+    else alert(d.error || 'Save failed');
+  });
+}
+
+function deleteCategory(id, name, ticketCount) {
+  var msg = 'Delete "' + name + '"?';
+  if (ticketCount > 0) msg += '\n\n⚠️ ' + ticketCount + ' ticket(s) use this category — they will become uncategorised.';
+  if (!confirm(msg)) return;
+  fetch('/helpdesk/admin/categories/' + id + '/delete', {
+    method: 'POST', headers: { 'X-CSRFToken': CSRF }
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) { var el = document.getElementById('cat-card-' + id); if (el) el.remove(); location.reload(); }
+    else alert(d.error || 'Delete failed');
+  });
+}
+
+// ── Wire up all event listeners ──
+document.addEventListener('DOMContentLoaded', function() {
+
+  // Add category button (header)
+  var btnAdd = document.getElementById('btn-add-cat');
+  if (btnAdd) btnAdd.addEventListener('click', function() { openAddModal(null); });
+  var btnAddEmpty = document.getElementById('btn-add-cat-empty');
+  if (btnAddEmpty) btnAddEmpty.addEventListener('click', function() { openAddModal(null); });
+
+  // Close modal buttons
+  document.querySelectorAll('.btn-modal-close').forEach(function(btn) {
+    btn.addEventListener('click', function(e) { e.stopPropagation(); closeModal(btn.dataset.modal); });
+  });
+
+  // Submit edit
+  document.getElementById('btn-submit-edit').addEventListener('click', submitEdit);
+
+  // Add sub-category buttons (event delegation)
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-add-subcat');
+    if (btn) openAddModal(btn.dataset.id, btn.dataset.name, btn.dataset.color);
+  });
+
+  // Edit category buttons (event delegation)
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-edit-cat');
+    if (btn) {
+      var data = JSON.parse(btn.dataset.cat);
+      openEditModal(parseInt(btn.dataset.id), data);
+    }
+  });
+
+  // Delete category buttons (event delegation)
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-delete-cat');
+    if (btn) deleteCategory(parseInt(btn.dataset.id), btn.dataset.name, parseInt(btn.dataset.count));
+  });
+
+  // Preset quick-start buttons (event delegation)
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-preset-cat');
+    if (btn) prefillAdd(btn.dataset.icon, btn.dataset.name, btn.dataset.desc);
+  });
+
+  // Name input → slug preview
+  document.getElementById('add-name').addEventListener('input', function() {
+    updateSlug(this.value);
+  });
+
+  // Icon grid buttons (event delegation for both grids)
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-icon-pick');
+    if (btn) selectIcon(btn.dataset.grid, btn, btn.dataset.emoji);
+  });
+
+  // Color palette buttons (event delegation)
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-color-pick');
+    if (btn) {
+      if (btn.dataset.target === 'edit') selectColorEdit(btn.dataset.color);
+      else selectColor(btn.dataset.color);
+    }
+  });
+
+  // Custom color inputs
+  var addColorCustom = document.getElementById('add-color-custom');
+  if (addColorCustom) addColorCustom.addEventListener('change', function() { selectColor(this.value); });
+  var editColorCustom = document.getElementById('edit-color-custom');
+  if (editColorCustom) editColorCustom.addEventListener('change', function() { selectColorEdit(this.value); });
+
+  // Hover effects for preset buttons
+  document.querySelectorAll('.btn-preset-cat').forEach(function(btn) {
+    btn.addEventListener('mouseenter', function() {
+      btn.style.borderColor = '#7c3aed';
+      btn.style.color = '#7c3aed';
+    });
+    btn.addEventListener('mouseleave', function() {
+      btn.style.borderColor = '#e2e8f0';
+      btn.style.color = '#475569';
+    });
+  });
+
+  // Hover effects for color buttons
+  document.querySelectorAll('.btn-color-pick').forEach(function(btn) {
+    btn.addEventListener('mouseenter', function() { btn.style.transform = 'scale(1.15)'; });
+    btn.addEventListener('mouseleave', function() { btn.style.transform = ''; });
+  });
+});
+</script>
+{% endblock %}

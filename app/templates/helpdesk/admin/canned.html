@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% block title %}Canned Responses{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Canned Responses</h1>
+    <p class="page-subtitle">Saved reply templates — use <code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;">/shortcut</code> in reply box to insert</p>
+  </div>
+  <button id="btn-new-canned" class="btn btn-primary" style="background:#7c3aed;border-color:#7c3aed;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    New Response
+  </button>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+  <div style="margin-bottom:14px;padding:11px 16px;border-radius:8px;background:{{ '#d1fae5' if cat=='success' else '#fee2e2' }};color:{{ '#065f46' if cat=='success' else '#991b1b' }};font-size:13px;">{{ msg }}</div>
+  {% endfor %}
+{% endwith %}
+
+<!-- Summary strip -->
+<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+  <div class="card" style="padding:12px 18px;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:24px;font-weight:800;color:#7c3aed;">{{ items|length }}</span>
+    <span style="font-size:12px;color:#64748b;">Total responses</span>
+  </div>
+  <div class="card" style="padding:12px 18px;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:24px;font-weight:800;color:#16a34a;">{{ items|selectattr('is_active')|list|length }}</span>
+    <span style="font-size:12px;color:#64748b;">Active</span>
+  </div>
+  <div class="card" style="padding:12px 18px;margin-bottom:0;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:24px;font-weight:800;color:#0ea5e9;">{{ items|sum(attribute='use_count') }}</span>
+    <span style="font-size:12px;color:#64748b;">Total uses</span>
+  </div>
+  <div class="card" style="padding:12px 18px;margin-bottom:0;flex:1;">
+    <p style="margin:0;font-size:12px;color:#64748b;line-height:1.6;">
+      <strong>Variables you can use:</strong>
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;">{{requester_name}}</code>
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;">{{ticket_number}}</code>
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;">{{agent_name}}</code>
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;">{{priority}}</code>
+    </p>
+  </div>
+</div>
+
+{% if items %}
+<div class="card" style="padding:0;overflow:hidden;">
+  <table class="table" style="margin:0;">
+    <thead>
+      <tr>
+        <th style="width:200px;">Name</th>
+        <th style="width:100px;">Shortcut</th>
+        <th>Body preview</th>
+        <th style="width:120px;">Category</th>
+        <th style="width:70px;text-align:center;">Uses</th>
+        <th style="width:70px;text-align:center;">Status</th>
+        <th style="width:110px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cr in items %}
+      <tr id="cr-row-{{ cr.id }}">
+        <td style="font-weight:600;color:#0f172a;font-size:13px;">{{ cr.name }}</td>
+        <td>
+          {% if cr.shortcut %}
+          <code style="background:#f1f5f9;color:#7c3aed;padding:2px 7px;border-radius:4px;font-size:12px;">/{{ cr.shortcut }}</code>
+          {% else %}
+          <span style="color:#94a3b8;font-size:12px;">—</span>
+          {% endif %}
+        </td>
+        <td style="font-size:12px;color:#64748b;max-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          {{ cr.body[:120] }}{% if cr.body|length > 120 %}…{% endif %}
+        </td>
+        <td style="font-size:12px;color:#64748b;">
+          {% if cr.category %}
+          <span style="display:inline-flex;align-items:center;gap:4px;">
+            <span style="width:7px;height:7px;border-radius:50%;background:{{ cr.category.color }};"></span>
+            {{ cr.category.name }}
+          </span>
+          {% else %}—{% endif %}
+        </td>
+        <td style="text-align:center;font-size:13px;font-weight:600;color:#7c3aed;">{{ cr.use_count }}</td>
+        <td style="text-align:center;">
+          {% if cr.is_active %}
+          <span style="font-size:11px;color:#16a34a;font-weight:600;">● Active</span>
+          {% else %}
+          <span style="font-size:11px;color:#94a3b8;font-weight:500;">○ Off</span>
+          {% endif %}
+        </td>
+        <td>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-secondary btn-edit-canned" style="padding:4px 10px;font-size:12px;"
+              data-id="{{ cr.id }}" data-cr='{{ cr.to_dict()|tojson }}'>Edit</button>
+            <button class="btn btn-secondary btn-delete-canned" style="padding:4px 10px;font-size:12px;color:#ef4444;border-color:#fecaca;"
+              data-id="{{ cr.id }}" data-name="{{ cr.name|e }}">Delete</button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% else %}
+<div style="text-align:center;padding:70px 0;">
+  <div style="font-size:48px;margin-bottom:16px;">💬</div>
+  <h3 style="color:#0f172a;font-size:18px;margin-bottom:8px;">No canned responses yet</h3>
+  <p style="color:#64748b;font-size:13px;margin-bottom:20px;">Create saved replies your team can insert with a / shortcut.</p>
+  <button id="btn-new-canned-empty" class="btn btn-primary" style="background:#7c3aed;border-color:#7c3aed;">Create First Response</button>
+</div>
+{% endif %}
+
+<!-- ── Add Modal ── -->
+<div class="modal-overlay" id="add-canned-modal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <h3 class="modal-title">New Canned Response</h3>
+      <button class="modal-close btn-modal-close" data-modal="add-canned-modal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form method="POST" action="{{ url_for('helpdesk.canned_add') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Name <span style="color:#ef4444">*</span></label>
+            <input type="text" name="name" class="form-control" placeholder="e.g. Password Reset Steps" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Shortcut <span style="font-size:11px;color:#94a3b8;">(optional, no spaces)</span></label>
+            <div style="position:relative;">
+              <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px;">/</span>
+              <input type="text" name="shortcut" class="form-control" placeholder="reset" style="padding-left:22px;" pattern="[a-zA-Z0-9_-]+">
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Category <span style="font-size:11px;color:#94a3b8;">(optional)</span></label>
+            <select name="category_id" class="form-control">
+              <option value="">All categories</option>
+              {% for c in categories %}
+              <option value="{{ c.id }}">{{ c.icon or '' }} {{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Subject <span style="font-size:11px;color:#94a3b8;">(for email replies)</span></label>
+            <input type="text" name="subject" class="form-control" placeholder="e.g. Re: Your Request">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Body <span style="color:#ef4444">*</span></label>
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">
+            Use: <code style="background:#f1f5f9;padding:0 4px;border-radius:3px;">{{requester_name}}</code>
+            <code style="background:#f1f5f9;padding:0 4px;border-radius:3px;">{{ticket_number}}</code>
+            <code style="background:#f1f5f9;padding:0 4px;border-radius:3px;">{{agent_name}}</code>
+          </div>
+          <textarea name="body" rows="6" class="form-control" placeholder="Hi {{requester_name}},&#10;&#10;Thank you for reaching out..." required style="resize:vertical;font-size:13px;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-modal-close" data-modal="add-canned-modal">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="background:#7c3aed;border-color:#7c3aed;">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Edit Modal ── -->
+<div class="modal-overlay" id="edit-canned-modal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Edit Canned Response</h3>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="ecr-delete-btn" style="font-size:12px;color:#ef4444;border:1.5px solid #fecaca;background:white;border-radius:6px;padding:4px 10px;cursor:pointer;">Delete</button>
+        <button class="modal-close btn-modal-close" data-modal="edit-canned-modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <form id="edit-canned-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Name</label>
+            <input type="text" name="name" id="ecr-name" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Shortcut</label>
+            <div style="position:relative;">
+              <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px;">/</span>
+              <input type="text" name="shortcut" id="ecr-shortcut" class="form-control" style="padding-left:22px;">
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select name="category_id" id="ecr-cat" class="form-control">
+              <option value="">All categories</option>
+              {% for c in categories %}
+              <option value="{{ c.id }}">{{ c.icon or '' }} {{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Subject</label>
+            <input type="text" name="subject" id="ecr-subject" class="form-control">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Body</label>
+          <textarea name="body" id="ecr-body" rows="6" class="form-control" style="resize:vertical;font-size:13px;"></textarea>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+          <input type="checkbox" name="is_active" id="ecr-active" value="1" style="width:15px;height:15px;accent-color:#7c3aed;">
+          Active
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-modal-close" data-modal="edit-canned-modal">Cancel</button>
+        <button type="button" id="ecr-save-btn" class="btn btn-primary" style="background:#7c3aed;border-color:#7c3aed;">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ g.csp_nonce }}">
+let editCrId = null;
+
+function openEditCanned(id, data) {
+  editCrId = id;
+  document.getElementById('ecr-name').value    = data.name || '';
+  document.getElementById('ecr-shortcut').value = (data.shortcut || '').replace(/^\//,'');
+  document.getElementById('ecr-cat').value     = data.category_id || '';
+  document.getElementById('ecr-subject').value = data.subject || '';
+  document.getElementById('ecr-body').value    = data.body || '';
+  document.getElementById('ecr-active').checked = data.is_active !== false;
+  openModal('edit-canned-modal');
+}
+
+function submitEditCanned() {
+  if (!editCrId) return;
+  const fd = new FormData(document.getElementById('edit-canned-form'));
+  if (!document.getElementById('ecr-active').checked) fd.delete('is_active');
+  fetch('/helpdesk/admin/canned/' + editCrId + '/edit', {
+    method: 'POST',
+    headers: {'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content},
+    body: fd,
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { closeModal('edit-canned-modal'); location.reload(); }
+    else alert(d.error || 'Error saving');
+  });
+}
+
+function deleteCannedFromEdit() {
+  if (!editCrId || !confirm('Delete this canned response?')) return;
+  fetch('/helpdesk/admin/canned/' + editCrId + '/delete', {
+    method: 'POST',
+    headers: {'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content},
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { closeModal('edit-canned-modal'); location.reload(); }
+    else alert(d.error || 'Error deleting');
+  });
+}
+
+function deleteCanned(id, name) {
+  if (!confirm('Delete "' + name + '"?')) return;
+  fetch('/helpdesk/admin/canned/' + id + '/delete', {
+    method: 'POST',
+    headers: {'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content},
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { document.getElementById('cr-row-' + id)?.remove(); }
+    else alert(d.error || 'Error');
+  });
+}
+
+// ── Wire up all event listeners ──
+document.addEventListener('DOMContentLoaded', function() {
+
+  // Open add modal buttons
+  var btnNew = document.getElementById('btn-new-canned');
+  if (btnNew) btnNew.addEventListener('click', function() { openModal('add-canned-modal'); });
+  var btnNewEmpty = document.getElementById('btn-new-canned-empty');
+  if (btnNewEmpty) btnNewEmpty.addEventListener('click', function() { openModal('add-canned-modal'); });
+
+  // Close modal buttons (shared class)
+  document.querySelectorAll('.btn-modal-close').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      closeModal(btn.dataset.modal);
+    });
+  });
+
+  // Edit canned buttons (event delegation)
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-edit-canned');
+    if (btn) {
+      var data = JSON.parse(btn.dataset.cr);
+      openEditCanned(parseInt(btn.dataset.id), data);
+    }
+  });
+
+  // Delete canned buttons (event delegation)
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-delete-canned');
+    if (btn) {
+      deleteCanned(parseInt(btn.dataset.id), btn.dataset.name);
+    }
+  });
+
+  // Edit modal: save + delete
+  document.getElementById('ecr-save-btn').addEventListener('click', submitEditCanned);
+  document.getElementById('ecr-delete-btn').addEventListener('click', deleteCannedFromEdit);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Repairs{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Repair History</h1>
+    <p class="page-subtitle">{{ total }} repair record{{ 's' if total != 1 else '' }}</p>
+  </div>
+</div>
+
+<form method="get" class="filters-bar">
+  <select name="status" class="filter-input">
+    <option value="">All Status</option>
+    <option value="in-progress" {% if status_f == 'in-progress' %}selected{% endif %}>In Progress</option>
+    <option value="completed" {% if status_f == 'completed' %}selected{% endif %}>Completed</option>
+  </select>
+  <button type="submit" class="btn btn-primary">Filter</button>
+  {% if status_f %}<a href="{{ url_for('repairs.list') }}" class="btn btn-secondary">Clear</a>{% endif %}
+</form>
+
+<div class="card" style="padding: 0; overflow: hidden;">
+  {% if repairs %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Asset</th>
+        <th>Description</th>
+        <th>Status</th>
+        <th>Cost</th>
+        <th>Repaired By</th>
+        <th>Date</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for repair, asset in repairs %}
+      <tr>
+        <td>
+          <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" style="color: #3b82f6; text-decoration: none; font-weight: 600; font-size: 13px;">{{ asset.serial_number }}</a>
+          <div style="font-size: 12px; color: #64748b;">{{ asset.model or '' }}</div>
+        </td>
+        <td style="max-width: 280px; font-size: 14px;">{{ repair.repair_text or '—' }}</td>
+        <td>
+          {% if repair.status == 'completed' %}
+          <span style="background: #d1fae5; color: #065f46; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;">✓ Completed</span>
+          {% else %}
+          <span style="background: #dbeafe; color: #1d4ed8; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;">⟳ In Progress</span>
+          {% endif %}
+        </td>
+        <td style="font-size: 13px; font-weight: 500;">{{ '₹{:,.0f}'.format(repair.cost) if repair.cost else '—' }}</td>
+        <td style="font-size: 13px; color: #64748b;">{{ repair.repaired_by or '—' }}</td>
+        <td style="font-size: 12px; color: #94a3b8; white-space: nowrap;">{{ repair.repair_date.strftime('%b %d, %Y') if repair.repair_date else '—' }}</td>
+        <td>
+          {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+          <div style="display: flex; gap: 6px;">
+            {% if repair.status == 'in-progress' %}
+            <button class="btn-complete-repair btn btn-primary" data-repair-id="{{ repair.id }}" data-serial="{{ asset.serial_number }}" style="padding: 4px 10px; font-size: 12px;">Complete</button>
+            {% endif %}
+            {% if session.get('user', {}).get('role') == 'admin' %}
+            <form method="post" action="{{ url_for('repairs.delete', repair_id=repair.id) }}" data-confirm="Delete this repair record?">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-danger" style="padding: 4px 10px; font-size: 12px;">✕</button>
+            </form>
+            {% endif %}
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state" style="padding: 60px 0; text-align: center;">
+    <div style="font-size: 40px; margin-bottom: 12px;">🔧</div>
+    <p style="color: #64748b; font-size: 15px;">No repair records</p>
+  </div>
+  {% endif %}
+</div>
+
+{% if pages > 1 %}
+<div class="pagination" style="justify-content: center; margin-top: 20px;">
+  {% if page > 1 %}<a href="?page={{ page-1 }}&status={{ status_f }}" class="page-link">← Prev</a>{% endif %}
+  {% for p in range(1, pages+1) %}
+  {% if p == page %}<span class="page-link active">{{ p }}</span>
+  {% elif p <= 2 or p >= pages-1 or (p >= page-2 and p <= page+2) %}<a href="?page={{ p }}&status={{ status_f }}" class="page-link">{{ p }}</a>{% endif %}
+  {% endfor %}
+  {% if page < pages %}<a href="?page={{ page+1 }}&status={{ status_f }}" class="page-link">Next →</a>{% endif %}
+</div>
+{% endif %}
+
+<!-- Modal: Complete Repair -->
+<div class="modal-overlay" id="complete-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Complete Repair</h3>
+      <button id="btn-close-complete-modal" class="modal-close">✕</button>
+    </div>
+    <div id="complete-asset-info" style="font-size: 13px; color: #64748b; margin-bottom: 16px;"></div>
+    <form id="complete-form" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group">
+        <label class="form-label">Action Taken</label>
+        <textarea name="action_taken" class="form-control" rows="2" placeholder="What was repaired/replaced..."></textarea>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="form-group">
+          <label class="form-label">Repair Cost (₹)</label>
+          <input type="number" name="repair_cost" class="form-control" step="0.01" min="0" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Asset Status After</label>
+          <select name="status_after" class="form-control">
+            <option value="instock">In Stock</option>
+            <option value="deployed">Deployed</option>
+            <option value="retired">Retired</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width: 100%;">Mark Complete</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ g.csp_nonce }}">
+function openCompleteModal(repairId, serial) {
+  const modal = document.getElementById('complete-modal');
+  document.getElementById('complete-asset-info').textContent = 'Asset: ' + serial;
+  document.getElementById('complete-form').action = '/repairs/' + repairId + '/complete';
+  modal.classList.add('open');
+  modal.style.display = 'flex';
+}
+
+document.querySelectorAll('.btn-complete-repair').forEach(btn =>
+  btn.addEventListener('click', function() {
+    openCompleteModal(parseInt(this.dataset.repairId), this.dataset.serial);
+  }));
+
+const completeModal = document.getElementById('complete-modal');
+completeModal?.addEventListener('click', e => {
+  if (e.target === completeModal) {
+    completeModal.classList.remove('open');
+    completeModal.style.display = 'none';
+  }
+});
+document.getElementById('btn-close-complete-modal')?.addEventListener('click', () => {
+  completeModal.classList.remove('open');
+  completeModal.style.display = 'none';
+});
+</script>
+{% endblock %}

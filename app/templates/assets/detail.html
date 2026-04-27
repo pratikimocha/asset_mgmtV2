@@ -1,0 +1,688 @@
+{% extends "base.html" %}
+{% block title %}{{ asset.serial_number }}{% endblock %}
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+      <h1 class="page-title">{{ asset.serial_number }}</h1>
+      <span class="badge-status-{{ asset.status }}" style="font-size: 13px; padding: 4px 12px; border-radius: 20px;">{{ asset.status.title() }}</span>
+    </div>
+    <p class="page-subtitle">{{ asset.model }}{% if asset.manufacturer %} · {{ asset.manufacturer }}{% endif %}{% if asset.category %} · {{ asset.category }}{% endif %}</p>
+  </div>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+    <button id="btn-change-status" class="btn btn-secondary">Change Status</button>
+    <a href="{{ url_for('assets.edit', asset_id=asset.id) }}" class="btn btn-secondary">Edit</a>
+    {% endif %}
+    {% if session.get('user', {}).get('role') == 'admin' %}
+    <form method="post" action="{{ url_for('assets.delete', asset_id=asset.id) }}" style="display: inline;" data-confirm="Delete {{ asset.serial_number }}? This cannot be undone.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-danger">Delete</button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('assets.list') }}" class="btn btn-secondary">← Back</a>
+  </div>
+</div>
+
+<!-- Health/Quick Stats Bar -->
+<div style="display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
+  <div class="card" style="flex: 1; min-width: 160px; padding: 16px; margin-bottom: 0;">
+    <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Health Score</div>
+    <div style="font-size: 22px; font-weight: 700; color: {{ '#10b981' if asset.health_score >= 70 else '#f59e0b' if asset.health_score >= 40 else '#ef4444' }};">{{ asset.health_score }}%</div>
+  </div>
+  <div class="card" style="flex: 1; min-width: 160px; padding: 16px; margin-bottom: 0;">
+    <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Age</div>
+    <div style="font-size: 18px; font-weight: 600; color: #0f172a;">{{ asset.age_details.label if asset.age_details else '—' }}</div>
+  </div>
+  <div class="card" style="flex: 1; min-width: 160px; padding: 16px; margin-bottom: 0;">
+    <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Warranty</div>
+    <div style="font-size: 15px; font-weight: 600; color: {{ '#10b981' if asset.warranty_state == 'active' else '#f59e0b' if asset.warranty_state == 'expiring' else '#ef4444' if asset.warranty_state == 'expired' else '#94a3b8' }};">
+      {% if asset.warranty_state == 'active' %}✓ Active
+      {% elif asset.warranty_state == 'expiring' %}⚠ Expiring
+      {% elif asset.warranty_state == 'expired' %}✗ Expired
+      {% else %}Unknown{% endif %}
+    </div>
+  </div>
+  <div class="card" style="flex: 1; min-width: 160px; padding: 16px; margin-bottom: 0;">
+    <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Open Issues</div>
+    <div style="font-size: 22px; font-weight: 700; color: {{ '#ef4444' if open_issues|length > 0 else '#10b981' }};">{{ open_issues|length }}</div>
+  </div>
+  {% if asset.active_assignment %}
+  <div class="card" style="flex: 2; min-width: 200px; padding: 16px; margin-bottom: 0; background: #eff6ff; border-color: #bfdbfe;">
+    <div style="font-size: 12px; color: #1d4ed8; margin-bottom: 4px;">Currently Assigned To</div>
+    <div style="font-size: 17px; font-weight: 600; color: #1e40af;">{{ asset.active_assignment.user_name }}</div>
+    <div style="font-size: 12px; color: #3b82f6;">Since {{ asset.active_assignment.assigned_date.strftime('%b %d, %Y') if asset.active_assignment.assigned_date else '—' }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Tabs -->
+<div class="tabs" id="asset-tabs">
+  <button class="tab active" data-tab="overview">Overview</button>
+  <button class="tab" data-tab="assignments">Assignments <span class="tab-badge">{{ assignments|length }}</span></button>
+  <button class="tab" data-tab="issues">Issues <span class="tab-badge {% if open_issues %}tab-badge-red{% endif %}">{{ open_issues|length + closed_issues|length }}</span></button>
+  <button class="tab" data-tab="repairs">Repairs <span class="tab-badge">{{ asset.repairs|length }}</span></button>
+  <button class="tab" data-tab="maintenance">Maintenance <span class="tab-badge">{{ asset.maintenance|length }}</span></button>
+  <button class="tab" data-tab="lifecycle">Lifecycle</button>
+  <button class="tab" data-tab="po">Purchase Order</button>
+  <button class="tab" data-tab="helpdesk">Helpdesk Tickets <span class="tab-badge {% if helpdesk_tickets|selectattr('status', 'in', ['new','open','pending','on_hold'])|list %}tab-badge-red{% endif %}">{{ helpdesk_tickets|length }}</span></button>
+</div>
+
+<!-- Tab: Overview -->
+<div class="tab-panel active" id="tab-overview">
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    <div class="card">
+      <h3 style="font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px;">Identification</h3>
+      <dl style="display: grid; grid-template-columns: 140px 1fr; gap: 10px 16px; font-size: 14px;">
+        <dt style="color: #64748b;">Serial Number</dt><dd style="font-weight: 500;">{{ asset.serial_number }}</dd>
+        <dt style="color: #64748b;">Asset Tag</dt><dd>{{ asset.asset_tag or '—' }}</dd>
+        <dt style="color: #64748b;">Model</dt><dd>{{ asset.model or '—' }}</dd>
+        <dt style="color: #64748b;">Manufacturer</dt><dd>{{ asset.manufacturer or '—' }}</dd>
+        <dt style="color: #64748b;">Category</dt><dd>{{ asset.category or '—' }}</dd>
+      </dl>
+    </div>
+    <div class="card">
+      <h3 style="font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px;">Purchase & Cost</h3>
+      <dl style="display: grid; grid-template-columns: 140px 1fr; gap: 10px 16px; font-size: 14px;">
+        <dt style="color: #64748b;">Purchase Date</dt><dd>{{ asset.purchase_date.strftime('%b %d, %Y') if asset.purchase_date else '—' }}</dd>
+        <dt style="color: #64748b;">Warranty Expiry</dt><dd>{{ asset.warranty_expiry.strftime('%b %d, %Y') if asset.warranty_expiry else '—' }}</dd>
+        <dt style="color: #64748b;">Cost</dt><dd>{{ '₹{:,.0f}'.format(asset.cost) if asset.cost else '—' }}</dd>
+        <dt style="color: #64748b;">Vendor</dt><dd>{{ asset.vendor or '—' }}</dd>
+      </dl>
+    </div>
+    <div class="card">
+      <h3 style="font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px;">Location</h3>
+      <dl style="display: grid; grid-template-columns: 140px 1fr; gap: 10px 16px; font-size: 14px;">
+        <dt style="color: #64748b;">Location</dt><dd>{{ asset.location or '—' }}</dd>
+        <dt style="color: #64748b;">Department</dt><dd>{{ asset.department or '—' }}</dd>
+        {% if asset.sold_to %}<dt style="color: #64748b;">Sold To</dt><dd style="font-weight: 500; color: #dc2626;">{{ asset.sold_to }}</dd>{% endif %}
+      </dl>
+    </div>
+    <div class="card">
+      <h3 style="font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px;">Add Issue</h3>
+      {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+      <form method="post" action="{{ url_for('issues.add') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="asset_id" value="{{ asset.id }}">
+        <div class="form-group">
+          <textarea name="issue_text" class="form-control" rows="2" placeholder="Describe the issue..." required style="resize: vertical;"></textarea>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <select name="severity" class="form-control" style="width: auto;">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+          <button type="submit" class="btn btn-primary" style="flex: 1;">Report Issue</button>
+        </div>
+      </form>
+      {% else %}
+      <p style="color: #64748b; font-size: 14px;">Manager or Admin role required to report issues.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Tab: Assignments -->
+<div class="tab-panel" id="tab-assignments" style="display: none;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <h3 style="font-size: 16px; font-weight: 600;">Assignment History</h3>
+    <div style="display: flex; gap: 8px;">
+      {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+      {% if asset.status.lower() in ('instock', 'received') %}
+      <button class="btn-open-assign btn btn-primary">Assign to User</button>
+      {% endif %}
+      {% if asset.active_assignment %}
+      <button id="btn-return-asset" data-asgn-id="{{ asset.active_assignment.id }}" data-user-name="{{ asset.active_assignment.user_name }}" class="btn btn-secondary">Return Asset</button>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+  {% if assignments %}
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <table class="table">
+      <thead><tr><th>User</th><th>Assigned Date</th><th>Returned</th><th>Condition (Issue)</th><th>Condition (Return)</th><th>Assigned By</th></tr></thead>
+      <tbody>
+        {% for a in assignments %}
+        <tr>
+          <td style="font-weight: 500;">{{ a.user_name }}</td>
+          <td>{{ a.assigned_date.strftime('%b %d, %Y') if a.assigned_date else '—' }}</td>
+          <td>
+            {% if a.returned_at %}{{ a.returned_at.strftime('%b %d, %Y') }}
+            {% else %}<span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 500;">Active</span>{% endif %}
+          </td>
+          <td style="font-size: 13px; color: #64748b;">{{ a.condition_on_issue or '—' }}</td>
+          <td style="font-size: 13px; color: #64748b;">{{ a.condition_on_return or '—' }}</td>
+          <td style="font-size: 13px; color: #64748b;">{{ a.assigned_by or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding: 48px 0; text-align: center;">
+    <p style="color: #64748b;">No assignment history</p>
+    {% if asset.status.lower() in ('instock', 'received') and session.get('user', {}).get('role') in ('admin', 'manager') %}
+    <button class="btn-open-assign btn btn-primary" style="margin-top: 12px;">Assign Now</button>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Tab: Issues -->
+<div class="tab-panel" id="tab-issues" style="display: none;">
+  {% if open_issues %}
+  <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 12px; color: #dc2626;">Open Issues ({{ open_issues|length }})</h3>
+  <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 24px;">
+    <table class="table">
+      <thead><tr><th>Issue</th><th>Severity</th><th>Status</th><th>Reported By</th><th>Date</th><th></th></tr></thead>
+      <tbody>
+        {% for issue in open_issues %}
+        <tr>
+          <td style="font-size: 14px; max-width: 300px;">{{ issue.issue_text }}</td>
+          <td><span style="background: {{ '#fee2e2' if issue.severity == 'high' else '#fef3c7' if issue.severity == 'medium' else '#d1fae5' }}; color: {{ '#991b1b' if issue.severity == 'high' else '#92400e' if issue.severity == 'medium' else '#065f46' }}; padding: 2px 8px; border-radius: 10px; font-size: 12px;">{{ issue.severity.title() }}</span></td>
+          <td><span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 10px; font-size: 12px;">{{ issue.status.title() }}</span></td>
+          <td style="font-size: 13px; color: #64748b;">{{ issue.reported_by or '—' }}</td>
+          <td style="font-size: 12px; color: #94a3b8;">{{ issue.date_reported.strftime('%b %d, %Y') if issue.date_reported else '—' }}</td>
+          <td>
+            {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+            <div style="display: flex; gap: 5px; align-items: center;">
+              <button class="btn-resolve-issue btn btn-secondary"
+                data-issue-id="{{ issue.id }}"
+                style="padding: 4px 10px; font-size: 12px; color: #15803d; border-color: #bbf7d0; background: #f0fdf4;"
+                title="Mark as resolved — no repair needed">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:3px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Resolve
+              </button>
+              <button class="btn-start-repair btn btn-secondary"
+                data-issue-id="{{ issue.id }}"
+                style="padding: 4px 10px; font-size: 12px;"
+                title="Send to repair">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:3px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Repair
+              </button>
+              <button class="btn-delete-issue btn btn-danger"
+                data-issue-id="{{ issue.id }}"
+                style="padding: 4px 8px; font-size: 12px;"
+                title="Delete issue record">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+              </button>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if closed_issues %}
+  <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 12px; color: #64748b;">Resolved Issues ({{ closed_issues|length }})</h3>
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <table class="table">
+      <thead><tr><th>Issue</th><th>Severity</th><th>Reported By</th><th>Date</th></tr></thead>
+      <tbody>
+        {% for issue in closed_issues %}
+        <tr style="opacity: 0.7;">
+          <td style="font-size: 14px; max-width: 300px; text-decoration: line-through; color: #94a3b8;">{{ issue.issue_text }}</td>
+          <td><span style="background: #f3f4f6; color: #6b7280; padding: 2px 8px; border-radius: 10px; font-size: 12px;">{{ issue.severity.title() }}</span></td>
+          <td style="font-size: 13px; color: #94a3b8;">{{ issue.reported_by or '—' }}</td>
+          <td style="font-size: 12px; color: #94a3b8;">{{ issue.date_reported.strftime('%b %d, %Y') if issue.date_reported else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if not open_issues and not closed_issues %}
+  <div class="empty-state" style="padding: 48px 0; text-align: center;">
+    <div style="font-size: 32px; margin-bottom: 12px;">✅</div>
+    <p style="color: #64748b;">No issues reported — asset is healthy</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Tab: Repairs -->
+<div class="tab-panel" id="tab-repairs" style="display: none;">
+  {% if asset.repairs %}
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <table class="table">
+      <thead><tr><th>Description</th><th>Status</th><th>Cost</th><th>Repaired By</th><th>Date</th></tr></thead>
+      <tbody>
+        {% for r in asset.repairs %}
+        <tr>
+          <td style="font-size: 14px; max-width: 300px;">{{ r.repair_text or '—' }}</td>
+          <td><span class="badge-status-{{ 'instock' if r.status == 'completed' else 'repair' }}" style="font-size: 12px;">{{ r.status.title() }}</span></td>
+          <td>{{ '₹{:,.0f}'.format(r.cost) if r.cost else '—' }}</td>
+          <td style="font-size: 13px; color: #64748b;">{{ r.repaired_by or '—' }}</td>
+          <td style="font-size: 12px; color: #94a3b8;">{{ r.repair_date.strftime('%b %d, %Y') if r.repair_date else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding: 48px 0; text-align: center;">
+    <p style="color: #64748b;">No repair history</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Tab: Maintenance -->
+<div class="tab-panel" id="tab-maintenance" style="display: none;">
+  {% if asset.maintenance %}
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <table class="table">
+      <thead><tr><th>Task</th><th>Type</th><th>Status</th><th>Scheduled</th><th>Completed</th><th>Assigned To</th></tr></thead>
+      <tbody>
+        {% for m in asset.maintenance %}
+        <tr>
+          <td style="font-size: 14px;">{{ m.notes or m.task_type or '—' }}</td>
+          <td style="font-size: 13px; color: #64748b;">{{ m.task_type or '—' }}</td>
+          <td><span class="badge-status-{{ 'instock' if m.status == 'completed' else 'repair' }}" style="font-size: 12px;">{{ m.status.title() }}</span></td>
+          <td style="font-size: 13px; color: #64748b;">{{ m.scheduled_date.strftime('%b %d, %Y') if m.scheduled_date else '—' }}</td>
+          <td style="font-size: 13px; color: #64748b;">{{ m.completed_date.strftime('%b %d, %Y') if m.completed_date else '—' }}</td>
+          <td style="font-size: 13px; color: #64748b;">{{ m.assigned_to or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding: 48px 0; text-align: center;">
+    <p style="color: #64748b;">No maintenance tasks</p>
+    {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+    <a href="{{ url_for('maintenance.list') }}" class="btn btn-primary" style="margin-top: 12px;">Schedule Maintenance</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Tab: Lifecycle -->
+<div class="tab-panel" id="tab-lifecycle" style="display: none;">
+  {% if asset.lifecycle %}
+  <div style="display: flex; flex-direction: column; gap: 0;">
+    {% for event in asset.lifecycle | sort(attribute='event_date', reverse=True) %}
+    <div style="display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid #f1f5f9;">
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: #eff6ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px;">
+        {% if 'assign' in event.event_type %}👤{% elif 'return' in event.event_type %}↩{% elif 'repair' in event.event_type %}🔧{% elif 'status' in event.event_type %}🔄{% else %}📌{% endif %}
+      </div>
+      <div style="flex: 1;">
+        <div style="font-weight: 500; font-size: 14px; color: #0f172a;">{{ event.event_type.replace('_', ' ').title() }}</div>
+        {% if event.event_notes %}<div style="font-size: 13px; color: #64748b; margin-top: 2px;">{{ event.event_notes }}</div>{% endif %}
+        <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">{{ event.event_date.strftime('%b %d, %Y') if event.event_date else '' }}{% if event.performed_by %} · by {{ event.performed_by }}{% endif %}</div>
+      </div>
+      {% if event.status_after %}<span class="badge-status-{{ event.status_after }}" style="font-size: 11px; align-self: center;">{{ event.status_after.title() }}</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding: 48px 0; text-align: center;">
+    <p style="color: #64748b;">No lifecycle events recorded</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Tab: Purchase Order -->
+<div class="tab-panel" id="tab-po" style="display: none;">
+  {% if asset.purchase_order %}
+  <div class="card" style="max-width: 500px;">
+    <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 16px;">Purchase Order</h3>
+    <dl style="display: grid; grid-template-columns: 140px 1fr; gap: 10px 16px; font-size: 14px;">
+      <dt style="color: #64748b;">PO Number</dt><dd style="font-weight: 500;">{{ asset.purchase_order.po_number or '—' }}</dd>
+      <dt style="color: #64748b;">Vendor</dt><dd>{{ asset.purchase_order.vendor or '—' }}</dd>
+      <dt style="color: #64748b;">Amount</dt><dd>{{ '₹{:,.0f}'.format(asset.purchase_order.amount) if asset.purchase_order.amount else '—' }}</dd>
+      <dt style="color: #64748b;">PO Date</dt><dd>{{ asset.purchase_order.po_date.strftime('%b %d, %Y') if asset.purchase_order.po_date else '—' }}</dd>
+    </dl>
+    {% if asset.purchase_order.pdf_filename %}
+    <a href="{{ url_for('purchase_orders.serve', filename=asset.purchase_order.pdf_filename) }}" class="btn btn-secondary" style="margin-top: 16px;">📄 View PDF</a>
+    {% endif %}
+    {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+    <form method="post" action="{{ url_for('purchase_orders.delete', asset_id=asset.id) }}" style="display: inline; margin-left: 8px;" data-confirm="Delete this PO?">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-danger" style="margin-top: 16px;">Delete PO</button>
+    </form>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding: 48px 0; text-align: center;">
+    <p style="color: #64748b;">No purchase order attached</p>
+    {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+    <button id="btn-attach-po" class="btn btn-primary" style="margin-top: 12px;">Attach PO</button>
+    <div id="po-add-form" style="display:none; margin-top: 16px; background: #f8fafc; border-radius: 10px; padding: 20px;">
+      <form method="post" action="{{ url_for('purchase_orders.upsert', asset_id=asset.id) }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group"><label class="form-label">PO Number</label><input type="text" name="po_number" class="form-control" placeholder="PO-2024-001"></div>
+          <div class="form-group"><label class="form-label">PO Date</label><input type="date" name="po_date" class="form-control"></div>
+          <div class="form-group"><label class="form-label">Vendor</label><input type="text" name="vendor" class="form-control" placeholder="Vendor name"></div>
+          <div class="form-group"><label class="form-label">Amount (₹)</label><input type="number" name="amount" class="form-control" step="0.01" min="0"></div>
+        </div>
+        <div class="form-group"><label class="form-label">PDF File (optional)</label><input type="file" name="po_pdf" class="form-control" accept=".pdf"></div>
+        <button type="submit" class="btn btn-primary">Save PO</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── Helpdesk Tickets tab ── -->
+<div class="tab-panel" id="tab-helpdesk" style="display: none;">
+  {% if helpdesk_tickets %}
+  {% set open_hd = helpdesk_tickets|selectattr('status', 'in', ['new','open','pending','on_hold'])|list %}
+  {% if open_hd %}
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;">
+    <span style="font-size:14px;">⚠️</span>
+    <span style="font-size:13px;color:#991b1b;font-weight:600;">{{ open_hd|length }} open helpdesk ticket{{ 's' if open_hd|length != 1 }} linked to this asset</span>
+  </div>
+  {% endif %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Ticket</th>
+        <th>Title</th>
+        <th>Category</th>
+        <th>Priority</th>
+        <th>Status</th>
+        <th>Raised On</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set pcolors = {'critical':'#dc2626','high':'#ea580c','medium':'#d97706','low':'#16a34a'} %}
+      {% set scolors = {'new':'#1d4ed8','open':'#15803d','pending':'#92400e','on_hold':'#475569','solved':'#065f46','closed':'#94a3b8'} %}
+      {% for t in helpdesk_tickets %}
+      <tr>
+        <td>
+          <a href="{{ url_for('helpdesk.ticket_detail', number=t.number) }}"
+             style="font-size:13px;font-weight:700;color:#7c3aed;text-decoration:none;">{{ t.number }}</a>
+        </td>
+        <td style="font-size:13px;max-width:280px;">
+          <a href="{{ url_for('helpdesk.ticket_detail', number=t.number) }}"
+             style="color:#0f172a;text-decoration:none;font-weight:500;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ t.title }}</a>
+        </td>
+        <td style="font-size:12px;color:#64748b;">
+          {{ t.category.name if t.category else '—' }}
+          {% if t.subcategory %}<span style="color:#94a3b8;"> › {{ t.subcategory.name }}</span>{% endif %}
+        </td>
+        <td>
+          <span style="font-size:11px;font-weight:700;color:{{ pcolors.get(t.priority,'#64748b') }};text-transform:uppercase;letter-spacing:.04em;">{{ t.priority }}</span>
+        </td>
+        <td>
+          <span style="font-size:11px;font-weight:600;background:{{ t.status_colors[0] }};color:{{ t.status_colors[1] }};padding:2px 9px;border-radius:10px;">{{ t.status.replace('_',' ').title() }}</span>
+        </td>
+        <td style="font-size:12px;color:#94a3b8;white-space:nowrap;">{{ t.created_at | localtime('%d %b %Y') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div style="margin-top:12px;font-size:12px;color:#94a3b8;">
+    {{ helpdesk_tickets|length }} ticket{{ 's' if helpdesk_tickets|length != 1 }} total ·
+    {{ helpdesk_tickets|selectattr('status','in',['solved','closed'])|list|length }} resolved ·
+    {{ helpdesk_tickets|selectattr('status','in',['new','open','pending','on_hold'])|list|length }} open
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:48px 0;">
+    <div style="font-size:36px;margin-bottom:12px;">🎉</div>
+    <p style="color:#64748b;font-size:14px;">No helpdesk tickets linked to this asset</p>
+    <p style="color:#94a3b8;font-size:12px;margin-top:4px;">When a ticket is raised and linked to this asset, it will appear here</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Modal: Change Status -->
+<div class="modal-overlay" id="status-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Change Status</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <form method="post" action="{{ url_for('assets.update_status', asset_id=asset.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group">
+        <label class="form-label">New Status</label>
+        <select name="status" class="form-control" id="status-select">
+          {% for s in valid_statuses %}
+          <option value="{{ s }}" {% if asset.status == s %}selected{% endif %}>{{ s.title() }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="sold-to-group" style="display: none;">
+        <div class="form-group">
+          <label class="form-label">Sale Type</label>
+          <div style="display: flex; gap: 20px; margin-top: 6px;">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
+              <input type="radio" name="sold_type" value="internal" id="sold-internal" checked> Internal (to employee)
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
+              <input type="radio" name="sold_type" value="external" id="sold-external"> External (to vendor/buyer)
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" id="sold-to-label">Employee Name</label>
+          <input type="text" name="sold_to_name" class="form-control" value="{{ asset.sold_to or '' }}" placeholder="Enter name">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <input type="text" name="notes" class="form-control" placeholder="Optional notes">
+      </div>
+      <button type="submit" class="btn btn-primary">Update Status</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Assign Asset -->
+<div class="modal-overlay" id="assign-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Assign Asset</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <form id="assign-form">
+      <input type="hidden" name="asset_id" value="{{ asset.id }}">
+      <div class="form-group">
+        <label class="form-label">Employee Name <span style="color: #ef4444;">*</span></label>
+        <input type="text" name="user_name" class="form-control" required placeholder="Full name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Assigned Date</label>
+        <input type="date" name="assigned_date" class="form-control" value="{{ now().strftime('%Y-%m-%d') if now else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Condition</label>
+        <select name="condition_on_issue" class="form-control">
+          <option value="Good">Good</option>
+          <option value="Fair">Fair</option>
+          <option value="Poor">Poor</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <input type="text" name="notes" class="form-control" placeholder="Optional notes">
+      </div>
+      <button type="button" id="btn-do-assign" class="btn btn-primary">Assign Asset</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Return Asset -->
+<div class="modal-overlay" id="return-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Return Asset</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <form id="return-form">
+      <div class="form-group">
+        <label class="form-label">Returning from</label>
+        <input type="text" id="return-user-display" class="form-control" readonly style="background: #f8fafc;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Return Date</label>
+        <input type="date" name="returned_date" class="form-control" value="{{ now().strftime('%Y-%m-%d') if now else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Condition on Return</label>
+        <select name="condition_on_return" class="form-control">
+          <option value="Good">Good</option>
+          <option value="Fair">Fair</option>
+          <option value="Damaged">Damaged</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <input type="text" name="notes" class="form-control" placeholder="Optional notes">
+      </div>
+      <button type="button" id="btn-do-return" class="btn btn-primary">Confirm Return</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ g.csp_nonce }}">
+// Tab switching
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+    this.classList.add('active');
+    document.getElementById('tab-' + this.dataset.tab).style.display = 'block';
+  });
+});
+
+// Modal helpers — override site.js versions (this script loads AFTER site.js)
+window.openModal = function(idOrEl) {
+  const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
+  if (el) {
+    el.classList.add('open');
+    el.style.display = 'flex';
+  }
+};
+window.closeModal = function(idOrEl) {
+  const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
+  if (el) {
+    el.classList.remove('open');
+    el.style.display = 'none';
+  }
+};
+
+// Toggle sold fields
+function toggleSoldToField(val) {
+  document.getElementById('sold-to-group').style.display = val === 'sold' ? 'block' : 'none';
+}
+function updateSoldLabel() {
+  const isInternal = document.getElementById('sold-internal')?.checked;
+  const lbl = document.getElementById('sold-to-label');
+  const inp = document.querySelector('input[name="sold_to_name"]');
+  if (lbl) lbl.textContent = isInternal ? 'Employee Name' : 'Buyer / Vendor Name';
+  if (inp) inp.placeholder = isInternal ? 'Employee full name' : 'Buyer or vendor name';
+}
+toggleSoldToField(document.getElementById('status-select')?.value || '');
+document.getElementById('sold-internal')?.addEventListener('change', updateSoldLabel);
+document.getElementById('sold-external')?.addEventListener('change', updateSoldLabel);
+
+// Wire up all event handlers
+document.getElementById('btn-change-status')?.addEventListener('click', () => openModal('status-modal'));
+document.querySelectorAll('.btn-open-assign').forEach(btn => btn.addEventListener('click', () => openModal('assign-modal')));
+
+const btnReturnAsset = document.getElementById('btn-return-asset');
+if (btnReturnAsset) {
+  btnReturnAsset.addEventListener('click', function() {
+    openReturnModal(parseInt(this.dataset.asgnId), this.dataset.userName);
+  });
+}
+
+document.querySelectorAll('.btn-start-repair').forEach(btn =>
+  btn.addEventListener('click', function() { startRepair(parseInt(this.dataset.issueId)); }));
+
+document.getElementById('btn-attach-po')?.addEventListener('click', () => {
+  document.getElementById('po-add-form').style.display = 'block';
+});
+
+document.getElementById('status-select')?.addEventListener('change', function() {
+  toggleSoldToField(this.value);
+});
+
+// Submit buttons inside modals
+document.getElementById('btn-do-assign')?.addEventListener('click', submitAssign);
+document.getElementById('btn-do-return')?.addEventListener('click', submitReturn);
+
+// Modal overlay click-to-close and close buttons
+['status-modal', 'assign-modal', 'return-modal'].forEach(id => {
+  const overlay = document.getElementById(id);
+  if (!overlay) return;
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(id); });
+  overlay.querySelector('.modal-close')?.addEventListener('click', () => closeModal(id));
+});
+
+// Assign
+async function submitAssign() {
+  const form = document.getElementById('assign-form');
+  const data = new FormData(form);
+  const csrf = document.querySelector('meta[name="csrf-token"]').content;
+  const res = await fetch('{{ url_for("assignments.assign") }}', { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: data });
+  const json = await res.json();
+  if (json.ok) { location.reload(); } else { alert(json.error || 'Failed'); }
+}
+
+// Return
+let returnAsgId = null;
+function openReturnModal(asgId, userName) {
+  returnAsgId = asgId;
+  document.getElementById('return-user-display').value = userName;
+  openModal('return-modal');
+}
+async function submitReturn() {
+  if (!returnAsgId) return;
+  const form = document.getElementById('return-form');
+  const data = new FormData(form);
+  const csrf = document.querySelector('meta[name="csrf-token"]').content;
+  const res = await fetch(`/assignments/${returnAsgId}/return`, { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: data });
+  const json = await res.json();
+  if (json.ok) { location.reload(); } else { alert(json.error || 'Failed'); }
+}
+
+// Issue actions (resolve / start repair / delete) — all AJAX, reload on success
+async function issueAction(issueId, url, confirmMsg) {
+  if (confirmMsg && !confirm(confirmMsg)) return;
+  const csrf = document.querySelector('meta[name="csrf-token"]').content;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const json = await res.json();
+    if (json.ok) { location.reload(); }
+    else { alert(json.error || 'Action failed'); }
+  } catch (e) { alert('Request failed'); }
+}
+
+document.querySelectorAll('.btn-resolve-issue').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    issueAction(parseInt(btn.dataset.issueId),
+      `/issues/${btn.dataset.issueId}/resolve`,
+      'Mark this issue as resolved? The asset will show as working.');
+  });
+});
+
+document.querySelectorAll('.btn-delete-issue').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    issueAction(parseInt(btn.dataset.issueId),
+      `/issues/${btn.dataset.issueId}/delete`,
+      'Delete this issue record? This cannot be undone.');
+  });
+});
+
+async function startRepair(issueId) {
+  if (!confirm('Start repair for this issue? Asset status will change to In Repair.')) return;
+  const csrf = document.querySelector('meta[name="csrf-token"]').content;
+  const res = await fetch(`/issues/${issueId}/start_repair`, { method: 'POST', headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+  const json = await res.json();
+  if (json.ok) { location.reload(); } else { alert(json.error || 'Failed'); }
+}
+</script>
+{% endblock %}
