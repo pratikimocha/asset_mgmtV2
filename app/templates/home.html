@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iMocha IT Suite</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: 'Inter', sans-serif; background: #060612; color: #fff; overflow-x: hidden; }
+
+.bg { position: fixed; inset: 0; z-index: 0; background: #060612; overflow: hidden; }
+.bg-orb { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.35; animation: drift 12s ease-in-out infinite alternate; }
+.orb1 { width: 700px; height: 700px; background: #4f1dca; top: -200px; left: -200px; animation-delay: 0s; }
+.orb2 { width: 500px; height: 500px; background: #0e7490; top: 20%; right: -150px; animation-delay: -4s; }
+.orb3 { width: 400px; height: 400px; background: #6d28d9; bottom: -100px; left: 35%; animation-delay: -8s; }
+@keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(40px,30px) scale(1.08); } }
+
+.shell { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; }
+
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 48px;
+}
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.logo img { height: 28px; width: auto; filter: brightness(0) invert(1); }
+.logo-sub { font-size: 11px; color: rgba(255,255,255,.35); font-weight: 400; letter-spacing: .01em; }
+.nav-right { display: flex; align-items: center; gap: 14px; }
+.nav-user {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px 6px 6px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 99px;
+}
+.nav-av {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  font-size: 10px; font-weight: 800; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-user-name { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.75); }
+.nav-signout {
+  font-size: 12px; font-weight: 500; color: rgba(255,255,255,.35);
+  text-decoration: none; padding: 6px 12px;
+  border: 1px solid rgba(255,255,255,.08); border-radius: 8px;
+  transition: color .2s, border-color .2s;
+}
+.nav-signout:hover { color: rgba(255,255,255,.7); border-color: rgba(255,255,255,.2); }
+
+.hero {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 40px 48px 60px; text-align: center;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.35);
+  border-radius: 99px; padding: 5px 14px;
+  font-size: 11px; font-weight: 600; color: #a78bfa;
+  letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 28px;
+}
+.hero-badge-dot { width: 5px; height: 5px; border-radius: 50%; background: #a78bfa; }
+.hero-title {
+  font-size: clamp(42px, 5vw, 68px);
+  font-weight: 900; line-height: 1.05;
+  letter-spacing: -.04em; color: #fff;
+  margin-bottom: 18px;
+}
+.hero-title .muted { color: rgba(255,255,255,.25); }
+.hero-desc {
+  font-size: 16px; font-weight: 400; line-height: 1.65;
+  color: rgba(255,255,255,.45); max-width: 460px;
+  margin: 0 auto 52px;
+}
+
+.cards { display: flex; gap: 16px; width: 100%; max-width: 780px; }
+.pcard {
+  flex: 1; position: relative; overflow: hidden;
+  border-radius: 20px; padding: 28px 28px 24px;
+  text-decoration: none; text-align: left;
+  display: flex; flex-direction: column;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,.08);
+  transition: transform .3s cubic-bezier(.34,1.56,.64,1), box-shadow .3s;
+  background: rgba(255,255,255,.04);
+  backdrop-filter: blur(20px);
+}
+.pcard::before {
+  content: ''; position: absolute; inset: 0; border-radius: 20px;
+  opacity: 0; transition: opacity .3s;
+}
+.pcard-asset::before  { background: linear-gradient(135deg, rgba(124,58,237,.12), rgba(109,40,217,.08)); }
+.pcard-helpdesk::before { background: linear-gradient(135deg, rgba(8,145,178,.12), rgba(6,182,212,.08)); }
+.pcard:hover { transform: translateY(-6px); }
+.pcard:hover::before { opacity: 1; }
+.pcard-asset:hover  { box-shadow: 0 24px 48px rgba(124,58,237,.2), 0 0 0 1px rgba(124,58,237,.25); }
+.pcard-helpdesk:hover { box-shadow: 0 24px 48px rgba(8,145,178,.2), 0 0 0 1px rgba(8,145,178,.25); }
+.pcard-glow {
+  position: absolute; width: 200px; height: 200px;
+  border-radius: 50%; filter: blur(60px);
+  top: -60px; right: -60px; opacity: 0;
+  transition: opacity .4s; pointer-events: none;
+}
+.pcard:hover .pcard-glow { opacity: .4; }
+.pcard-asset .pcard-glow  { background: #7c3aed; }
+.pcard-helpdesk .pcard-glow { background: #0891b2; }
+.pcard-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 18px;
+}
+.pcard-asset .pcard-icon  { background: rgba(124,58,237,.2); color: #a78bfa; }
+.pcard-helpdesk .pcard-icon { background: rgba(8,145,178,.2); color: #67e8f9; }
+.pcard-name { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -.02em; margin-bottom: 6px; }
+.pcard-desc { font-size: 13px; line-height: 1.55; color: rgba(255,255,255,.45); margin-bottom: 24px; flex: 1; }
+.pcard-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 18px; border-top: 1px solid rgba(255,255,255,.07);
+}
+.pcard-cta { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; transition: gap .2s; }
+.pcard-asset .pcard-cta   { color: #a78bfa; }
+.pcard-helpdesk .pcard-cta { color: #67e8f9; }
+.pcard:hover .pcard-cta { gap: 10px; }
+.pcard-shortcut {
+  font-size: 10px; font-weight: 600; color: rgba(255,255,255,.2);
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+  padding: 3px 8px; border-radius: 5px; letter-spacing: .04em;
+}
+
+.footer {
+  padding: 20px 48px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid rgba(255,255,255,.05);
+}
+.footer-left { font-size: 12px; color: rgba(255,255,255,.2); }
+.footer-right { display: flex; align-items: center; gap: 5px; font-size: 11px; color: rgba(255,255,255,.2); }
+.footer-dot { width: 5px; height: 5px; border-radius: 50%; background: #4ade80; }
+</style>
+</head>
+<body>
+
+<div class="bg">
+  <div class="bg-orb orb1"></div>
+  <div class="bg-orb orb2"></div>
+  <div class="bg-orb orb3"></div>
+</div>
+
+<div class="shell">
+
+  <nav>
+    <a href="/" class="logo">
+      <img src="{{ url_for('static', filename='images/imocha-logo.png') }}" alt="iMocha IT Suite">
+      <span class="logo-sub">IT Suite</span>
+    </a>
+    <div class="nav-right">
+      {% if user %}
+      <div class="nav-user">
+        <div class="nav-av">{{ (user.name or 'U')[:2].upper() }}</div>
+        <span class="nav-user-name">{{ user.name }} · {{ user.role|title }}</span>
+      </div>
+      <a href="/logout" class="nav-signout">Sign out</a>
+      {% endif %}
+    </div>
+  </nav>
+
+  <main class="hero">
+    <div class="hero-badge"><div class="hero-badge-dot"></div>iMocha IT Suite · 2026</div>
+
+    <h1 class="hero-title">
+      IT Operations,<br>
+      <span class="muted">Built for clarity.</span>
+    </h1>
+
+    <p class="hero-desc">
+      One platform to manage every asset, resolve every ticket, and enforce every SLA — giving your IT team complete visibility and control across the organization.
+    </p>
+
+    <div class="cards">
+
+      <a href="{{ '/dashboard' if user else '/login?next=/dashboard&platform=assets' }}" class="pcard pcard-asset">
+        <div class="pcard-glow"></div>
+        <div class="pcard-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </div>
+        <div class="pcard-name">Asset Manager</div>
+        <div class="pcard-desc">Full lifecycle management for every device in your organization — from procurement and deployment to warranty tracking, repairs, and retirement. Real-time stock intelligence, always.</div>
+        <div class="pcard-foot">
+          <div class="pcard-cta">
+            Go to Asset Manager
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </div>
+          <div class="pcard-shortcut">G · A</div>
+        </div>
+      </a>
+
+      <a href="{{ '/helpdesk/' if user else '/login?next=/helpdesk/&platform=helpdesk' }}" class="pcard pcard-helpdesk">
+        <div class="pcard-glow"></div>
+        <div class="pcard-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="pcard-name">Helpdesk</div>
+        <div class="pcard-desc">SLA-driven support operations built for accountability. Handle every ticket with precision, enforce first-response targets, and deliver measurable, consistent service quality to every user.</div>
+        <div class="pcard-foot">
+          <div class="pcard-cta">
+            Go to Helpdesk
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </div>
+          <div class="pcard-shortcut">G · H</div>
+        </div>
+      </a>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-left">© 2026 iMocha · Confidential · Internal use only</div>
+    <div class="footer-right">
+      <div class="footer-dot"></div>
+      All systems operational · v2.0
+    </div>
+  </footer>
+
+</div>
+
+</body>
+</html>

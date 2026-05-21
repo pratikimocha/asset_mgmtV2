@@ -10,7 +10,8 @@ bp = Blueprint('auth', __name__)
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     if session.get('user'):
-        return redirect('/dashboard')
+        next_url = request.args.get('next', '/dashboard')
+        return redirect(next_url if next_url.startswith('/') else '/dashboard')
 
     # "no users" means no users with a password set (ignores legacy dev-login stubs)
     no_users = not UserRole.query.filter(UserRole.password_hash.isnot(None)).first()
@@ -52,7 +53,7 @@ def login():
 @bp.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('auth.login'))
+    return redirect(url_for('home.index'))
 
 
 # ── Dev bypass (only when no users exist and no Azure config) ─────────────────

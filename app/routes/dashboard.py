@@ -1,12 +1,28 @@
 """Dashboard routes."""
-from flask import Blueprint, render_template, request, make_response
+from flask import Blueprint, render_template, request, make_response, url_for
 from sqlalchemy import func, case, and_
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date as date_type
 from app.auth.decorators import login_required
 from app.models import Asset, Assignment, Issue, Repair, MaintenanceTask
 from app.extensions import db
 
 bp = Blueprint('dashboard', __name__)
+
+
+def _time_ago(dt):
+    if not dt:
+        return ''
+    if isinstance(dt, date_type) and not isinstance(dt, datetime):
+        dt = datetime(dt.year, dt.month, dt.day)
+    diff = datetime.utcnow() - dt
+    s = diff.total_seconds()
+    if s < 60:
+        return 'just now'
+    if s < 3600:
+        return f'{int(s // 60)}m ago'
+    if s < 86400:
+        return f'{int(s // 3600)}h ago'
+    return f'{int(s // 86400)}d ago'
 
 @bp.route('/')
 @bp.route('/dashboard')
@@ -47,8 +63,15 @@ def index():
     ).outerjoin(issue_cnt_d, issue_cnt_d.c.asset_id == Asset.id).first()
 
     deployed, instock, sold, repair, retired, total = [int(agg[i] or 0) for i in range(6)]
+    active_inventory = max(total - sold - retired, 0)
     stats = {'total': total, 'deployed': deployed, 'instock': instock,
              'sold': sold, 'repair': repair, 'retired': retired}
+    inventory_summary = {
+        'total': total,
+        'active': active_inventory,
+        'sold': sold,
+        'retired': retired,
+    }
     sm = {'deployed': deployed, 'instock': instock, 'sold': sold,
           'repair': repair, 'retired': retired}
     warranty_stats = {'active': int(agg[6] or 0), 'expiring': int(agg[7] or 0), 'expired': int(agg[8] or 0)}
@@ -80,12 +103,80 @@ def index():
     ).filter(func.lower(Asset.status) == 'instock'
     ).group_by(Asset.model).order_by(func.count(Asset.id).desc()).limit(8).all()
 
-    resp = make_response(render_template('dashboard.html', stats=stats, warranty_stats=warranty_stats,
+    # ── Query 4: recent activity feed ────────────────────────────────────────
+    activity = []
+
+    for asgn, asset in (db.session.query(Assignment, Asset)
+            .join(Asset, Asset.id == Assignment.asset_id)
+            .filter(Assignment.returned_at.is_(None))
+            .order_by(Assignment.created_at.desc()).limit(8).all()):
+        activity.append({
+            'type': 'assign', 'time': asgn.created_at,
+            'title': f'Assigned to {asgn.user_name}',
+            'detail': f'{asset.model or "Unknown"} · {asset.serial_number}',
+            'url': url_for('assets.detail', asset_id=asset.id),
+        })
+
+    for asgn, asset in (db.session.query(Assignment, Asset)
+            .join(Asset, Asset.id == Assignment.asset_id)
+            .filter(Assignment.returned_at.isnot(None))
+            .order_by(Assignment.updated_at.desc()).limit(6).all()):
+        activity.append({
+            'type': 'return', 'time': asgn.updated_at or asgn.created_at,
+            'title': f'Returned by {asgn.user_name}',
+            'detail': f'{asset.model or "Unknown"} · {asset.serial_number}',
+            'url': url_for('assets.detail', asset_id=asset.id),
+        })
+
+    for issue, asset in (db.session.query(Issue, Asset)
+            .join(Asset, Asset.id == Issue.asset_id)
+            .order_by(Issue.created_at.desc()).limit(6).all()):
+        activity.append({
+            'type': 'issue', 'time': issue.created_at,
+            'title': (issue.issue_text or 'Issue reported')[:55],
+            'detail': f'{asset.model or "Unknown"} · {asset.serial_number}',
+            'url': url_for('assets.detail', asset_id=asset.id),
+        })
+
+    for repair, asset in (db.session.query(Repair, Asset)
+            .join(Asset, Asset.id == Repair.asset_id)
+            .order_by(Repair.created_at.desc()).limit(5).all()):
+        activity.append({
+            'type': 'repair', 'time': repair.created_at,
+            'title': (repair.repair_text or 'Repair logged')[:55],
+            'detail': f'{asset.model or "Unknown"} · {asset.serial_number}',
+            'url': url_for('assets.detail', asset_id=asset.id),
+        })
+
+    for asset in Asset.query.order_by(Asset.created_at.desc()).limit(5).all():
+        activity.append({
+            'type': 'add', 'time': asset.created_at,
+            'title': 'New asset registered',
+            'detail': f'{asset.model or "Unknown"} · {asset.serial_number}',
+            'url': url_for('assets.detail', asset_id=asset.id),
+        })
+
+    _epoch = datetime(2000, 1, 1)
+    activity.sort(key=lambda x: x['time'] if isinstance(x['time'], datetime) else (
+        datetime(x['time'].year, x['time'].month, x['time'].day) if x['time'] else _epoch
+    ), reverse=True)
+    activity = activity[:15]
+    for item in activity:
+        item['time_ago'] = _time_ago(item['time'])
+
+    deploy_pct = round(deployed / active_inventory * 100) if active_inventory > 0 else 0
+
+    model_rows_data = [{'model': r.model or 'Unknown', 'total': r.cnt,
+                        'working': int(r.working or 0), 'not_working': int(r.not_working or 0)}
+                       for r in model_rows]
+
+    resp = make_response(render_template('dashboard.html',
+        stats=stats, inventory_summary=inventory_summary,
+        warranty_stats=warranty_stats,
         cost_stats=cost_stats, open_issues=open_issues, overdue_maintenance=overdue,
         working_count=working_count, instock_with_issues=instock_with_issues,
-        model_breakdown=[{'model': r.model or 'Unknown', 'total': r.cnt,
-                          'working': int(r.working or 0), 'not_working': int(r.not_working or 0)} for r in model_rows],
-        status_breakdown=sm))
+        model_breakdown=model_rows_data, status_breakdown=sm,
+        recent_activity=activity, deploy_pct=deploy_pct))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     return resp
 

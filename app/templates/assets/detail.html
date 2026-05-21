@@ -99,28 +99,6 @@
         {% if asset.sold_to %}<dt style="color: #64748b;">Sold To</dt><dd style="font-weight: 500; color: #dc2626;">{{ asset.sold_to }}</dd>{% endif %}
       </dl>
     </div>
-    <div class="card">
-      <h3 style="font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px;">Add Issue</h3>
-      {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
-      <form method="post" action="{{ url_for('issues.add') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="asset_id" value="{{ asset.id }}">
-        <div class="form-group">
-          <textarea name="issue_text" class="form-control" rows="2" placeholder="Describe the issue..." required style="resize: vertical;"></textarea>
-        </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <select name="severity" class="form-control" style="width: auto;">
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-          </select>
-          <button type="submit" class="btn btn-primary" style="flex: 1;">Report Issue</button>
-        </div>
-      </form>
-      {% else %}
-      <p style="color: #64748b; font-size: 14px;">Manager or Admin role required to report issues.</p>
-      {% endif %}
-    </div>
   </div>
 </div>
 
@@ -172,6 +150,30 @@
 
 <!-- Tab: Issues -->
 <div class="tab-panel" id="tab-issues" style="display: none;">
+
+  {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
+  <div class="card" style="padding: 16px; margin-bottom: 20px; border: 1.5px solid #e2e8f0;">
+    <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 12px;">Report New Issue</div>
+    <form method="post" action="{{ url_for('issues.add') }}" style="display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="asset_id" value="{{ asset.id }}">
+      <textarea name="issue_text" class="form-control" rows="2" placeholder="Describe the issue..." required
+        style="flex:1; min-width:200px; resize:vertical; font-size:13px;"></textarea>
+      <div style="display:flex; flex-direction:column; gap:8px; min-width:140px;">
+        <select name="severity" class="form-control" style="font-size:13px;">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+        <button type="submit" class="btn btn-primary" style="background:#ef4444; border-color:#ef4444; justify-content:center;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Report Issue
+        </button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
   {% if open_issues %}
   <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 12px; color: #dc2626;">Open Issues ({{ open_issues|length }})</h3>
   <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 24px;">

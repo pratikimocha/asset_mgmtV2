@@ -134,7 +134,9 @@ def create_app(config_name=None):
     # Register blueprints
     from app.routes import auth, dashboard, assets, assignments, issues, repairs
     from app.routes import maintenance, purchase_orders, reports, admin, api, helpdesk
+    from app.routes import home
 
+    app.register_blueprint(home.bp)
     app.register_blueprint(auth.bp)
     app.register_blueprint(dashboard.bp)
     app.register_blueprint(assets.bp)

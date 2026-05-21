@@ -3,93 +3,240 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sign In — iMocha Asset Manager</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>Sign In — iMocha IT Suite</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-.login-card { background: #fff; border-radius: 20px; padding: 48px 40px; width: 420px; max-width: 95vw; box-shadow: 0 25px 50px rgba(0,0,0,0.4); }
-.logo { text-align: center; margin-bottom: 28px; }
-.logo img { height: 38px; width: auto; }
-.card-title { font-size: 20px; font-weight: 700; color: #0f172a; text-align: center; margin-bottom: 4px; }
-.card-subtitle { font-size: 13px; color: #64748b; text-align: center; margin-bottom: 28px; }
-.setup-banner { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #1e40af; margin-bottom: 20px; }
-.error-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; color: #dc2626; font-size: 13px; margin-bottom: 20px; }
-.form-group { margin-bottom: 16px; }
-label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
-input[type="text"], input[type="password"] {
-  width: 100%; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 10px 13px;
-  font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
-  color: #0f172a;
+html, body { height: 100%; font-family: 'Inter', sans-serif; background: #060612; color: #fff; overflow: hidden; }
+
+.bg { position: fixed; inset: 0; z-index: 0; }
+.bg-orb { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.3; animation: drift 12s ease-in-out infinite alternate; }
+.orb1 { width: 600px; height: 600px; background: #4f1dca; top: -200px; left: -200px; animation-delay: 0s; }
+.orb2 { width: 400px; height: 400px; background: #0e7490; bottom: -100px; right: -100px; animation-delay: -5s; }
+.orb3 { width: 300px; height: 300px; background: #6d28d9; top: 40%; left: 40%; animation-delay: -9s; }
+@keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(30px,25px) scale(1.06); } }
+
+.shell {
+  position: relative; z-index: 1;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 480px 1fr;
+  grid-template-rows: 60px 1fr 60px;
 }
-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
-.btn-signin {
+
+nav {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 48px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.logo img { height: 24px; width: auto; filter: brightness(0) invert(1); }
+.back-btn {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; color: rgba(255,255,255,.3);
+  text-decoration: none; padding: 6px 12px;
+  border: 1px solid rgba(255,255,255,.07); border-radius: 8px;
+  transition: color .2s, border-color .2s;
+}
+.back-btn:hover { color: rgba(255,255,255,.7); border-color: rgba(255,255,255,.2); }
+
+.center {
+  grid-column: 2; grid-row: 2;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  padding: 32px 0;
+}
+
+.context-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  border-radius: 99px; padding: 6px 14px 6px 8px;
+  margin-bottom: 28px;
+}
+.context-chip.asset  { background: rgba(124,58,237,.12); border: 1px solid rgba(124,58,237,.3); }
+.context-chip.helpdesk { background: rgba(8,145,178,.12);  border: 1px solid rgba(8,145,178,.3); }
+.context-chip.default  { background: rgba(124,58,237,.12); border: 1px solid rgba(124,58,237,.3); }
+.context-icon {
+  width: 22px; height: 22px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.context-chip.asset   .context-icon { background: rgba(124,58,237,.3); color: #a78bfa; }
+.context-chip.helpdesk .context-icon { background: rgba(8,145,178,.3);  color: #67e8f9; }
+.context-chip.default  .context-icon { background: rgba(124,58,237,.3); color: #a78bfa; }
+.context-text { font-size: 12px; font-weight: 600; }
+.context-chip.asset   .context-text { color: #a78bfa; }
+.context-chip.helpdesk .context-text { color: #67e8f9; }
+.context-chip.default  .context-text { color: #a78bfa; }
+
+.card {
+  width: 100%;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 20px; padding: 36px;
+  backdrop-filter: blur(24px);
+  box-shadow: 0 24px 64px rgba(0,0,0,.4);
+}
+.card-title { font-size: 24px; font-weight: 800; color: #fff; letter-spacing: -.02em; margin-bottom: 6px; }
+.card-sub { font-size: 13px; color: rgba(255,255,255,.4); margin-bottom: 30px; line-height: 1.5; }
+
+.setup-banner {
+  background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.25);
+  border-radius: 10px; padding: 12px 14px;
+  font-size: 12px; color: #93c5fd; margin-bottom: 20px; line-height: 1.5;
+}
+.error-box {
+  background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.25);
+  border-radius: 10px; padding: 12px 14px;
+  font-size: 12px; color: #fca5a5; margin-bottom: 20px;
+}
+
+.field { margin-bottom: 14px; }
+.field-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.5); margin-bottom: 6px; display: block; letter-spacing: .02em; }
+.field-input {
+  width: 100%; padding: 12px 14px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 10px; color: #fff;
+  font-size: 14px; font-family: 'Inter', sans-serif;
+  outline: none; transition: border-color .2s, background .2s;
+}
+.field-input::placeholder { color: rgba(255,255,255,.2); }
+.field-input:focus { border-color: rgba(124,58,237,.6); background: rgba(124,58,237,.08); }
+
+.btn-submit {
+  width: 100%; padding: 13px;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff; border: none; border-radius: 11px;
+  font-size: 14px; font-weight: 700; font-family: 'Inter', sans-serif;
+  cursor: pointer; margin-top: 6px;
+  transition: opacity .15s, transform .15s, box-shadow .15s;
+  box-shadow: 0 4px 16px rgba(124,58,237,.4);
   display: flex; align-items: center; justify-content: center; gap: 8px;
-  background: #0f172a; color: white; border: none; border-radius: 10px;
-  padding: 13px 24px; font-size: 15px; font-weight: 600; width: 100%;
-  cursor: pointer; transition: background 0.2s, transform 0.1s; font-family: inherit;
 }
-.btn-signin:hover { background: #1e293b; transform: translateY(-1px); }
-.btn-signin:active { transform: translateY(0); }
-.footer { margin-top: 28px; font-size: 12px; color: #94a3b8; text-align: center; }
-.footer a { color: #3b82f6; text-decoration: none; }
+.btn-submit:hover { opacity: .92; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,58,237,.5); }
+
+.security-note {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 20px; font-size: 11px; color: rgba(255,255,255,.2);
+}
+
+footer {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; font-size: 11px; color: rgba(255,255,255,.15);
+  border-top: 1px solid rgba(255,255,255,.04);
+}
+footer span { color: rgba(255,255,255,.08); }
 </style>
 </head>
 <body>
-<div class="login-card">
-  <div class="logo">
-    <img src="/static/images/imocha-logo.png" alt="iMocha">
+
+<div class="bg">
+  <div class="bg-orb orb1"></div>
+  <div class="bg-orb orb2"></div>
+  <div class="bg-orb orb3"></div>
+</div>
+
+<div class="shell">
+
+  <nav>
+    <a href="/" class="logo">
+      <img src="{{ url_for('static', filename='images/imocha-logo.png') }}" alt="iMocha IT Suite">
+    </a>
+    <a href="/" class="back-btn">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to home
+    </a>
+  </nav>
+
+  <div class="center">
+
+    {% set platform = request.args.get('platform', '') %}
+    {% if platform == 'helpdesk' %}
+    <div class="context-chip helpdesk">
+      <div class="context-icon">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <span class="context-text">Signing in to Helpdesk</span>
+    </div>
+    {% else %}
+    <div class="context-chip asset">
+      <div class="context-icon">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg>
+      </div>
+      <span class="context-text">{% if platform == 'assets' %}Signing in to Asset Manager{% else %}Sign in to iMocha IT Suite{% endif %}</span>
+    </div>
+    {% endif %}
+
+    <div class="card">
+
+      {% if setup %}
+
+      <div class="card-title">Create Admin Account</div>
+      <div class="card-sub">First-time setup — this account will have full admin access.</div>
+      <div class="setup-banner">No users exist yet. Set up your admin account to get started.</div>
+      {% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+      <form method="post" action="/login">
+        <input type="hidden" name="action" value="setup">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field">
+          <label class="field-label">Full Name</label>
+          <input class="field-input" type="text" name="display_name" placeholder="e.g. Pratik Shinde" required autocomplete="name">
+        </div>
+        <div class="field">
+          <label class="field-label">Username</label>
+          <input class="field-input" type="text" name="username" placeholder="e.g. pratik.shinde" required autocomplete="username">
+        </div>
+        <div class="field">
+          <label class="field-label">Password</label>
+          <input class="field-input" type="password" name="password" placeholder="Min. 8 characters" required autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label class="field-label">Confirm Password</label>
+          <input class="field-input" type="password" name="password2" placeholder="Repeat password" required autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn-submit">
+          Create Account &amp; Sign In
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </form>
+
+      {% else %}
+
+      <div class="card-title">Welcome back</div>
+      <div class="card-sub">Sign in to your iMocha IT account to continue.</div>
+      {% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+      <form method="post" action="/login?{{ request.query_string.decode() }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field">
+          <label class="field-label">Username</label>
+          <input class="field-input" type="text" name="username" placeholder="Your username" required autofocus autocomplete="username">
+        </div>
+        <div class="field">
+          <label class="field-label">Password</label>
+          <input class="field-input" type="password" name="password" placeholder="••••••••••••" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-submit">
+          Sign in
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </form>
+
+      {% endif %}
+
+      <div class="security-note">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Secured · Internal access only · iMocha IT Suite
+      </div>
+
+    </div>
   </div>
 
-  {% if setup %}
-  <div class="card-title">Create Admin Account</div>
-  <div class="card-subtitle">First-time setup — this account will have full admin access</div>
-  <div class="setup-banner">No users exist yet. Set up your admin account to get started.</div>
-  {% if error %}<div class="error-box">{{ error }}</div>{% endif %}
-  <form method="post" action="/login">
-    <input type="hidden" name="action" value="setup">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="form-group">
-      <label>Full Name</label>
-      <input type="text" name="display_name" placeholder="e.g. Pratik Shinde" required autocomplete="name">
-    </div>
-    <div class="form-group">
-      <label>Username</label>
-      <input type="text" name="username" placeholder="e.g. pratik.shinde" required autocomplete="username">
-    </div>
-    <div class="form-group">
-      <label>Password</label>
-      <input type="password" name="password" placeholder="Min. 8 characters" required autocomplete="new-password">
-    </div>
-    <div class="form-group">
-      <label>Confirm Password</label>
-      <input type="password" name="password2" placeholder="Repeat password" required autocomplete="new-password">
-    </div>
-    <button type="submit" class="btn-signin">Create Account &amp; Sign In</button>
-  </form>
+  <footer>
+    © 2026 iMocha <span>·</span> Confidential <span>·</span> Internal use only <span>·</span> v2.0
+  </footer>
 
-  {% else %}
-  <div class="card-title">Sign In</div>
-  <div class="card-subtitle">iMocha IT Department</div>
-  {% if error %}<div class="error-box">{{ error }}</div>{% endif %}
-  <form method="post" action="/login">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="form-group">
-      <label>Username</label>
-      <input type="text" name="username" placeholder="Your username" required autofocus autocomplete="username">
-    </div>
-    <div class="form-group">
-      <label>Password</label>
-      <input type="password" name="password" placeholder="Your password" required autocomplete="current-password">
-    </div>
-    <button type="submit" class="btn-signin">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-      Sign In
-    </button>
-  </form>
-  {% endif %}
-
-  <div class="footer"><a href="mailto:it@imocha.io">it@imocha.io</a></div>
 </div>
+
 </body>
 </html>

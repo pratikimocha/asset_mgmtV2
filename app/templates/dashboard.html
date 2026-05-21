@@ -1,371 +1,583 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
+
 {% block head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-.dash-kpi {
-  display: block;
-  text-decoration: none;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-left: 3px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 14px 16px;
-  transition: box-shadow 0.15s;
+/* ── Dashboard v5 ──────────────────────────────────────────────────────────── */
+.ds-ph { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+.ds-ph-left {}
+.ds-ph-title { font-size: 20px; font-weight: 800; letter-spacing: -.03em; color: #0f172a; }
+.ds-ph-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.ds-ph-date { font-size: 12px; color: #94a3b8; }
+.ds-live { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700;
+  color: #16a34a; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 5px; padding: 2px 8px; }
+.ds-live-dot { width: 5px; height: 5px; border-radius: 50%; background: #16a34a;
+  animation: ds-blink 2s ease-in-out infinite; }
+@keyframes ds-blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* Metric Strip */
+.ds-strip {
+  display: grid; grid-template-columns: repeat(5,1fr);
+  background: #fff; border: 1.5px solid #e8ecf3; border-radius: 14px;
+  overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 16px;
 }
-.dash-kpi:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
-.dash-kpi-label { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
-.dash-kpi-value { font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1; margin-bottom: 5px; }
-.dash-kpi-sub { font-size: 11px; color: #94a3b8; }
+.ds-mt { padding: 16px 18px 14px; text-decoration: none; color: inherit; position: relative;
+  transition: background .15s; display: block; }
+.ds-mt:hover { background: #fafbff; }
+.ds-mt + .ds-mt { border-left: 1px solid #f1f5f9; }
+.ds-mt-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ds-mt-lbl { font-size: 10.5px; font-weight: 600; color: #94a3b8; letter-spacing: .02em; }
+.ds-pill { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+.ds-pill-p { color: #7c3aed; background: #f3f0ff; }
+.ds-pill-b { color: #2563eb; background: #eff6ff; }
+.ds-pill-g { color: #16a34a; background: #f0fdf4; }
+.ds-pill-r { color: #dc2626; background: #fef2f2; }
+.ds-pill-a { color: #d97706; background: #fffbeb; }
+.ds-pill-s { color: #64748b; background: #f1f5f9; }
+.ds-mt-num { font-size: 30px; font-weight: 900; letter-spacing: -.05em; line-height: 1; color: #0f172a; }
+.ds-mt-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+.ds-mt-spark { margin-top: 10px; }
+.ds-mt-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 2.5px; opacity: 0; transition: opacity .15s; }
+.ds-mt:hover .ds-mt-bar { opacity: 1; }
+
+/* Card base */
+.ds-card { background: #fff; border: 1.5px solid #e8ecf3; border-radius: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05); overflow: hidden; }
+.ds-card-hdr { display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px 12px; border-bottom: 1px solid #f1f5f9; }
+.ds-card-title { font-size: 13px; font-weight: 700; color: #0f172a; }
+.ds-card-sub { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+.ds-card-link { font-size: 11.5px; font-weight: 600; color: #7c3aed; text-decoration: none; }
+.ds-card-link:hover { color: #6d28d9; text-decoration: underline; }
+
+/* Main Grid */
+.ds-main-grid { display: grid; grid-template-columns: 1fr 292px; gap: 16px; margin-bottom: 16px; }
+.ds-left { display: flex; flex-direction: column; gap: 16px; }
+.ds-right { display: flex; flex-direction: column; gap: 14px; }
+
+/* Activity Feed */
+.ds-feed { padding: 4px 16px 10px; display: flex; flex-direction: column; gap: 0; }
+.ds-fi { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid #f8fafc; text-decoration: none; transition: background .1s; }
+.ds-fi:last-child { border-bottom: none; }
+.ds-fi:hover { background: transparent; }
+.ds-fi-ic { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.ds-fi-ic svg { width: 14px; height: 14px; }
+.ds-fi-assign  { background: #eff6ff; color: #2563eb; }
+.ds-fi-return  { background: #f0fdf4; color: #16a34a; }
+.ds-fi-issue   { background: #fef2f2; color: #dc2626; }
+.ds-fi-repair  { background: #fff7ed; color: #ea580c; }
+.ds-fi-add     { background: #f3f0ff; color: #7c3aed; }
+.ds-fi-body { flex: 1; min-width: 0; }
+.ds-fi-main { font-size: 12.5px; font-weight: 600; color: #0f172a; line-height: 1.4;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-fi-detail { font-size: 11.5px; color: #64748b; margin-top: 2px; }
+.ds-fi-time { font-size: 10.5px; color: #94a3b8; flex-shrink: 0; white-space: nowrap; margin-top: 3px; }
+.ds-fi-empty { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px 16px; gap: 8px; color: #94a3b8; font-size: 13px; }
+
+/* Bottom Row */
+.ds-bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* Quick Actions */
+.ds-qa-list { padding: 8px 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+.ds-qa { display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 9px;
+  text-decoration: none; border: 1.5px solid transparent; transition: all .15s; }
+.ds-qa:hover { background: #fafbff; border-color: #e2e8f0; }
+.ds-qa-ic { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; }
+.ds-qa-ic svg { width: 14px; height: 14px; }
+.ds-qa-lbl { font-size: 12.5px; font-weight: 600; color: #0f172a; }
+.ds-qa-desc { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+.ds-qa-arr { margin-left: auto; color: #d1d5db; flex-shrink: 0; }
+
+/* Deploy Card */
+.ds-deploy {
+  border-radius: 14px; padding: 20px 22px; flex-shrink: 0; position: relative; overflow: hidden;
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%);
+  box-shadow: 0 4px 20px rgba(49,46,129,.2); border: 1px solid rgba(99,102,241,.2);
+}
+.ds-deploy::before { content: ''; position: absolute; width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(99,102,241,.3) 0%, transparent 70%);
+  top: -70px; right: -60px; pointer-events: none; }
+.ds-dc-lbl { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: rgba(255,255,255,.4); margin-bottom: 4px; }
+.ds-dc-pct { font-size: 52px; font-weight: 900; letter-spacing: -.06em; color: #fff; line-height: 1; }
+.ds-dc-desc { font-size: 11.5px; color: rgba(255,255,255,.4); margin: 4px 0 14px; }
+.ds-dc-track { height: 4px; background: rgba(255,255,255,.12); border-radius: 2px; margin-bottom: 14px; overflow: hidden; }
+.ds-dc-fill { height: 100%; background: linear-gradient(90deg,#818cf8,#a78bfa); border-radius: 2px; }
+.ds-dc-pills { display: flex; gap: 7px; flex-wrap: wrap; }
+.ds-dc-pill { font-size: 11px; font-weight: 600; color: rgba(255,255,255,.55);
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 6px; padding: 3px 9px; }
+.ds-dc-pill strong { color: #fff; }
+
+/* Stock Health Card */
+.ds-sn-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 12px 14px 8px; }
+.ds-sn { padding: 10px 8px; border-radius: 10px; text-align: center; }
+.ds-sn-n { background: #f8fafc; border: 1.5px solid #f1f5f9; }
+.ds-sn-g { background: #f0fdf4; border: 1.5px solid #bbf7d0; }
+.ds-sn-r { background: #fef2f2; border: 1.5px solid #fecaca; }
+.ds-sn-v { font-size: 22px; font-weight: 900; letter-spacing: -.04em; color: #0f172a; }
+.ds-sn-vg { color: #16a34a; }
+.ds-sn-vr { color: #dc2626; }
+.ds-sn-l { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: #94a3b8; margin-top: 2px; }
+.ds-model-rows { padding: 4px 14px 2px; display: flex; flex-direction: column; gap: 9px; }
+.ds-mr-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.ds-mr-name { font-size: 12px; font-weight: 600; color: #475569; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.ds-mr-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.ds-mr-pct { font-size: 10px; font-weight: 600; color: #94a3b8; }
+.ds-mr-cnt { font-size: 12px; font-weight: 800; color: #0f172a; }
+.ds-mr-track { height: 6px; background: #f1f5f9; border-radius: 99px; overflow: hidden; display: flex; }
+.ds-mr-ok { height: 100%; background: linear-gradient(90deg,#10b981,#34d399); }
+.ds-mr-bad { height: 100%; background: linear-gradient(90deg,#f97316,#fb923c); }
+.ds-stock-btn { display: flex; align-items: center; justify-content: center; gap: 7px;
+  margin: 10px 14px 14px; padding: 10px; background: #f8fafc; border: 1.5px solid #e2e8f0;
+  border-radius: 10px; text-decoration: none; font-size: 12px; font-weight: 600; color: #475569;
+  transition: all .15s; }
+.ds-stock-btn:hover { background: #0f172a; color: #fff; border-color: #0f172a; }
+
+/* Warranty Rows */
+.ds-w-rows { padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 7px; }
+.ds-wr { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px;
+  border-radius: 10px; text-decoration: none; transition: filter .15s; }
+.ds-wr:hover { filter: brightness(.97); }
+.ds-wr-g { background: #f0fdf4; border: 1.5px solid #bbf7d0; }
+.ds-wr-a { background: #fffbeb; border: 1.5px solid #fde68a; }
+.ds-wr-r { background: #fef2f2; border: 1.5px solid #fecaca; }
+.ds-wr-lft { display: flex; align-items: center; gap: 9px; }
+.ds-wr-ic { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+.ds-wr-ic svg { width: 13px; height: 13px; }
+.ds-wr-ic-g { background: #dcfce7; color: #16a34a; }
+.ds-wr-ic-a { background: #fef3c7; color: #d97706; }
+.ds-wr-ic-r { background: #fee2e2; color: #dc2626; }
+.ds-wr-ic-o { background: #ffedd5; color: #c2410c; }
+.ds-wr-lbl { font-size: 12.5px; font-weight: 600; }
+.ds-wr-lbl-g { color: #166534; }
+.ds-wr-lbl-a { color: #92400e; }
+.ds-wr-lbl-r { color: #991b1b; }
+.ds-wr-val { font-size: 20px; font-weight: 900; letter-spacing: -.04em; }
+.ds-wr-val-g { color: #16a34a; }
+.ds-wr-val-a { color: #d97706; }
+.ds-wr-val-r { color: #dc2626; }
 </style>
 {% endblock %}
+
 {% block content %}
 
-<div class="page-header">
-  <div>
-    <h1 class="page-title">Dashboard</h1>
-    <p class="page-subtitle">Welcome back, {{ session.get('user', {}).get('name', 'User').split()[0] }} — {{ now().strftime('%B %d, %Y') if now else '' }}</p>
+{% set user_name = session.get('user', {}).get('name', 'User').split()[0] %}
+{% set today_str = now().strftime('%B %d, %Y') if now else '' %}
+{% set active_inv = inventory_summary.active %}
+
+<!-- Page Header -->
+<div class="ds-ph">
+  <div class="ds-ph-left">
+    <div class="ds-ph-title">Dashboard</div>
+    <div class="ds-ph-meta">
+      <span class="ds-ph-date">Welcome back, {{ user_name }}&nbsp;&nbsp;·&nbsp;&nbsp;{{ today_str }}</span>
+      <div class="ds-live"><div class="ds-live-dot"></div>Live</div>
+    </div>
   </div>
-  <div class="page-actions">
-    <a href="{{ url_for('assets.add') }}" class="btn btn-primary">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Add Asset
-    </a>
-  </div>
+  <a href="{{ url_for('assets.add') }}" class="btn btn-primary" style="flex-shrink:0;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Asset
+  </a>
 </div>
 
-<!-- KPI Row 1 — inventory status -->
-<div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 12px;">
+<!-- Metric Strip -->
+<div class="ds-strip">
 
-  <a href="{{ url_for('assets.list') }}" class="dash-kpi" style="border-left-color: #64748b;">
-    <div class="dash-kpi-label">Total Assets</div>
-    <div class="dash-kpi-value">{{ stats.total }}</div>
-    <div class="dash-kpi-sub">All inventory</div>
+  <!-- Total Assets -->
+  <a href="{{ url_for('assets.list') }}" class="ds-mt">
+    <div class="ds-mt-top">
+      <span class="ds-mt-lbl">Total Assets</span>
+      <span class="ds-pill ds-pill-p">{{ active_inv }} active</span>
+    </div>
+    <div class="ds-mt-num">{{ stats.total }}</div>
+    <div class="ds-mt-sub">{{ inventory_summary.sold }} sold{% if inventory_summary.retired %} · {{ inventory_summary.retired }} retired{% endif %}</div>
+    <div class="ds-mt-spark">
+      <svg width="100%" height="22" viewBox="0 0 120 22" preserveAspectRatio="none">
+        <path d="M0,18 C30,15 60,10 90,7 S110,5 120,4" fill="none" stroke="#a78bfa" stroke-width="1.5" opacity=".6"/>
+      </svg>
+    </div>
+    <div class="ds-mt-bar" style="background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div>
   </a>
 
-  <a href="{{ url_for('assets.list') }}?status=deployed" class="dash-kpi" style="border-left-color: #3b82f6;">
-    <div class="dash-kpi-label" style="color: #3b82f6;">Deployed</div>
-    <div class="dash-kpi-value" style="color: #1d4ed8;">{{ stats.deployed }}</div>
-    <div class="dash-kpi-sub">Currently assigned</div>
+  <!-- Deployed -->
+  <a href="{{ url_for('assets.list') }}?status=deployed" class="ds-mt">
+    <div class="ds-mt-top">
+      <span class="ds-mt-lbl">Deployed</span>
+      <span class="ds-pill ds-pill-b">{{ deploy_pct }}% rate</span>
+    </div>
+    <div class="ds-mt-num" style="color:#2563eb;">{{ stats.deployed }}</div>
+    <div class="ds-mt-sub">Currently assigned</div>
+    <div class="ds-mt-spark">
+      <svg width="100%" height="22" viewBox="0 0 120 22" preserveAspectRatio="none">
+        <path d="M0,16 C25,14 50,12 75,9 S105,6 120,5" fill="none" stroke="#60a5fa" stroke-width="1.5" opacity=".6"/>
+      </svg>
+    </div>
+    <div class="ds-mt-bar" style="background:linear-gradient(90deg,#2563eb,#60a5fa);"></div>
   </a>
 
-  <a href="{{ url_for('assets.list') }}?status=instock" class="dash-kpi" style="border-left-color: #10b981;">
-    <div class="dash-kpi-label" style="color: #10b981;">In Stock</div>
-    <div class="dash-kpi-value" style="color: #059669;">{{ stats.instock }}</div>
-    <div class="dash-kpi-sub">Ready to deploy</div>
-  </a>
-
-  <a href="{{ url_for('issues.list') }}" class="dash-kpi" style="border-left-color: {% if open_issues > 0 %}#ef4444{% else %}#e2e8f0{% endif %}; {% if open_issues > 0 %}background: #fef2f2;{% endif %}">
-    <div class="dash-kpi-label" style="color: {% if open_issues > 0 %}#dc2626{% else %}#94a3b8{% endif %};">Open Issues</div>
-    <div class="dash-kpi-value" style="color: {% if open_issues > 0 %}#dc2626{% else %}#0f172a{% endif %};">{{ open_issues }}</div>
-    <div class="dash-kpi-sub">Needs attention</div>
-  </a>
-
-  <a href="{{ url_for('assets.list') }}?warranty=expiring" class="dash-kpi" style="border-left-color: {% if warranty_stats.expiring > 0 %}#f59e0b{% else %}#e2e8f0{% endif %}; {% if warranty_stats.expiring > 0 %}background: #fffbeb;{% endif %}">
-    <div class="dash-kpi-label" style="color: {% if warranty_stats.expiring > 0 %}#d97706{% else %}#94a3b8{% endif %};">Warranty Expiring</div>
-    <div class="dash-kpi-value" style="color: {% if warranty_stats.expiring > 0 %}#d97706{% else %}#0f172a{% endif %};">{{ warranty_stats.expiring }}</div>
-    <div class="dash-kpi-sub">Within 60 days</div>
-  </a>
-
-  <a href="{{ url_for('assets.list') }}?status=repair" class="dash-kpi" style="border-left-color: {% if stats.repair > 0 %}#f59e0b{% else %}#e2e8f0{% endif %}; {% if stats.repair > 0 %}background: #fff7ed;{% endif %}">
-    <div class="dash-kpi-label" style="color: {% if stats.repair > 0 %}#ea580c{% else %}#94a3b8{% endif %};">In Repair</div>
-    <div class="dash-kpi-value" style="color: {% if stats.repair > 0 %}#ea580c{% else %}#0f172a{% endif %};">{{ stats.repair }}</div>
-    <div class="dash-kpi-sub">Under maintenance</div>
-  </a>
-
-</div>
-
-<!-- KPI Row 2 — financials -->
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;">
-
-  <div class="dash-kpi" style="border-left-color: #7c3aed;">
-    <div class="dash-kpi-label" style="color: #7c3aed;">Portfolio Value</div>
-    <div class="dash-kpi-value" style="font-size: 22px;">₹{{ '{:,.0f}'.format(cost_stats.total_portfolio) }}</div>
-    <div class="dash-kpi-sub">Total asset cost</div>
-  </div>
-
-  <div class="dash-kpi" style="border-left-color: #64748b;">
-    <div class="dash-kpi-label">Avg Asset Cost</div>
-    <div class="dash-kpi-value" style="font-size: 22px;">₹{{ '{:,.0f}'.format(cost_stats.avg_cost) }}</div>
-    <div class="dash-kpi-sub">Per unit</div>
-  </div>
-
-  <div class="dash-kpi" style="border-left-color: {% if cost_stats.repair_spend > 0 %}#ef4444{% else %}#e2e8f0{% endif %};">
-    <div class="dash-kpi-label" style="color: {% if cost_stats.repair_spend > 0 %}#dc2626{% else %}#94a3b8{% endif %};">Repair Spend</div>
-    <div class="dash-kpi-value" style="font-size: 22px; color: {% if cost_stats.repair_spend > 0 %}#dc2626{% else %}#0f172a{% endif %};">₹{{ '{:,.0f}'.format(cost_stats.repair_spend) }}</div>
-    <div class="dash-kpi-sub">Total repair costs</div>
-  </div>
-
-</div>
-
-<!-- Charts + Warranty -->
-<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-
-  <!-- Status donut -->
-  <div class="card">
-    <div class="card-header">
-      <h3 class="card-title">Asset Status</h3>
-    </div>
-    <div style="position: relative; height: 200px; display: flex; align-items: center; justify-content: center; margin-bottom: 4px;">
-      <canvas id="statusChart"></canvas>
-    </div>
-    <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 0 4px 4px;">
-      {% for status, count in status_breakdown.items() %}{% if count > 0 %}
-      <span class="badge badge-status-{{ status }}" style="padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500;">{{ status.title() }}: {{ count }}</span>
-      {% endif %}{% endfor %}
-    </div>
-  </div>
-
-  <!-- Model bar chart -->
-  <div class="card">
-    <div class="card-header">
-      <h3 class="card-title">In-Stock by Model</h3>
-      <a href="{{ url_for('dashboard.stock') }}" style="font-size: 12px; color: #3b82f6; text-decoration: none; font-weight: 500;">Full view →</a>
-    </div>
-    {% if model_breakdown %}
-    <div style="position: relative; height: 220px;">
-      <canvas id="modelChart"></canvas>
-    </div>
-    {% else %}
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 220px; color: #94a3b8; font-size: 13px; gap: 8px;">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#e2e8f0" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-      No in-stock assets
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- Warranty overview -->
-  <div class="card">
-    <div class="card-header"><h3 class="card-title">Warranty</h3></div>
-    <div style="display: flex; flex-direction: column; gap: 10px; padding: 4px 0;">
-
-      <a href="{{ url_for('assets.list') }}?warranty=active" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; transition: background 0.15s;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 28px; height: 28px; border-radius: 7px; background: #dcfce7; display: flex; align-items: center; justify-content: center;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          </div>
-          <span style="font-size: 13px; font-weight: 500; color: #065f46;">Active</span>
-        </div>
-        <span style="font-size: 18px; font-weight: 700; color: #065f46;">{{ warranty_stats.active }}</span>
-      </a>
-
-      <a href="{{ url_for('assets.list') }}?warranty=expiring" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; transition: background 0.15s;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 28px; height: 28px; border-radius: 7px; background: #fef3c7; display: flex; align-items: center; justify-content: center;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          </div>
-          <span style="font-size: 13px; font-weight: 500; color: #92400e;">Expiring &lt;60 days</span>
-        </div>
-        <span style="font-size: 18px; font-weight: 700; color: #92400e;">{{ warranty_stats.expiring }}</span>
-      </a>
-
-      <a href="{{ url_for('assets.list') }}?warranty=expired" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; transition: background 0.15s;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 28px; height: 28px; border-radius: 7px; background: #fee2e2; display: flex; align-items: center; justify-content: center;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#991b1b" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          </div>
-          <span style="font-size: 13px; font-weight: 500; color: #991b1b;">Expired</span>
-        </div>
-        <span style="font-size: 18px; font-weight: 700; color: #991b1b;">{{ warranty_stats.expired }}</span>
-      </a>
-
-      {% if overdue_maintenance > 0 %}
-      <a href="{{ url_for('maintenance.list') }}" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; transition: background 0.15s;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 28px; height: 28px; border-radius: 7px; background: #ffedd5; display: flex; align-items: center; justify-content: center;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-          </div>
-          <span style="font-size: 13px; font-weight: 500; color: #c2410c;">Overdue Maintenance</span>
-        </div>
-        <span style="font-size: 18px; font-weight: 700; color: #c2410c;">{{ overdue_maintenance }}</span>
-      </a>
+  <!-- In Stock -->
+  <a href="{{ url_for('assets.list') }}?status=instock" class="ds-mt">
+    <div class="ds-mt-top">
+      <span class="ds-mt-lbl">In Stock</span>
+      {% if instock_with_issues > 0 %}
+        <span class="ds-pill ds-pill-a">{{ instock_with_issues }} issues</span>
+      {% else %}
+        <span class="ds-pill ds-pill-g">Ready</span>
       {% endif %}
-
     </div>
-  </div>
+    <div class="ds-mt-num" style="color:#16a34a;">{{ stats.instock }}</div>
+    <div class="ds-mt-sub">{{ working_count }} working · {{ instock_with_issues }} with issues</div>
+    <div class="ds-mt-spark">
+      <svg width="100%" height="22" viewBox="0 0 120 22" preserveAspectRatio="none">
+        <path d="M0,12 C20,14 40,11 60,10 S90,8 120,7" fill="none" stroke="#34d399" stroke-width="1.5" opacity=".6"/>
+      </svg>
+    </div>
+    <div class="ds-mt-bar" style="background:linear-gradient(90deg,#10b981,#34d399);"></div>
+  </a>
+
+  <!-- Open Issues -->
+  <a href="{{ url_for('issues.list') }}" class="ds-mt">
+    <div class="ds-mt-top">
+      <span class="ds-mt-lbl">Open Issues</span>
+      {% if open_issues > 0 %}
+        <span class="ds-pill ds-pill-r">Action needed</span>
+      {% else %}
+        <span class="ds-pill ds-pill-g">All clear</span>
+      {% endif %}
+    </div>
+    <div class="ds-mt-num" style="color:{% if open_issues > 0 %}#dc2626{% else %}#16a34a{% endif %};">{{ open_issues }}</div>
+    <div class="ds-mt-sub">Across active assets</div>
+    <div class="ds-mt-spark">
+      <svg width="100%" height="22" viewBox="0 0 120 22" preserveAspectRatio="none">
+        <path d="M0,10 C20,11 40,13 60,15 S90,17 120,19" fill="none" stroke="#f87171" stroke-width="1.5" opacity=".6"/>
+      </svg>
+    </div>
+    <div class="ds-mt-bar" style="background:linear-gradient(90deg,#ef4444,#fca5a5);"></div>
+  </a>
+
+  <!-- Warranty -->
+  <a href="{{ url_for('assets.list') }}?warranty=expiring" class="ds-mt">
+    <div class="ds-mt-top">
+      <span class="ds-mt-lbl">Warranty</span>
+      {% if warranty_stats.expired > 0 %}
+        <span class="ds-pill ds-pill-r">{{ warranty_stats.expired }} expired</span>
+      {% elif warranty_stats.expiring > 0 %}
+        <span class="ds-pill ds-pill-a">{{ warranty_stats.expiring }} expiring</span>
+      {% else %}
+        <span class="ds-pill ds-pill-g">All valid</span>
+      {% endif %}
+    </div>
+    <div class="ds-mt-num" style="color:#d97706; font-size:{% if warranty_stats.active > 999 %}20px{% else %}28px{% endif %};">{{ warranty_stats.active }}</div>
+    <div class="ds-mt-sub">{{ warranty_stats.active }} active · {{ warranty_stats.expiring }} expiring soon</div>
+    <div class="ds-mt-spark">
+      <svg width="100%" height="22" viewBox="0 0 120 22" preserveAspectRatio="none">
+        <path d="M0,7 C20,8 40,10 60,12 S90,16 120,19" fill="none" stroke="#fbbf24" stroke-width="1.5" opacity=".6"/>
+      </svg>
+    </div>
+    <div class="ds-mt-bar" style="background:linear-gradient(90deg,#f59e0b,#fcd34d);"></div>
+  </a>
 
 </div>
 
-<!-- Quick Actions + Stock Intelligence -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+<!-- Main Grid -->
+<div class="ds-main-grid">
 
-  <div class="card">
-    <div class="card-header"><h3 class="card-title">Quick Actions</h3></div>
-    <div style="display: flex; flex-direction: column; gap: 8px;">
+  <!-- LEFT COLUMN -->
+  <div class="ds-left">
 
-      <a href="{{ url_for('assets.add') }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 1px solid #e2e8f0; border-radius: 9px; text-decoration: none; transition: background 0.15s, border-color 0.15s;" class="quick-action">
-        <div style="width: 32px; height: 32px; border-radius: 8px; background: #eff6ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </div>
+    <!-- Recent Activity -->
+    <div class="ds-card">
+      <div class="ds-card-hdr">
         <div>
-          <div style="font-size: 13px; font-weight: 600; color: #0f172a;">Add New Asset</div>
-          <div style="font-size: 11px; color: #94a3b8; margin-top: 1px;">Register hardware or software</div>
+          <div class="ds-card-title">Recent Activity</div>
+          <div class="ds-card-sub">Latest assignments, issues &amp; status changes</div>
         </div>
-        <svg style="margin-left: auto; flex-shrink: 0;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-      </a>
+        <a href="{{ url_for('assets.list') }}" class="ds-card-link">View all →</a>
+      </div>
 
-      <a href="{{ url_for('assignments.workspace') }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 1px solid #e2e8f0; border-radius: 9px; text-decoration: none; transition: background 0.15s, border-color 0.15s;" class="quick-action">
-        <div style="width: 32px; height: 32px; border-radius: 8px; background: #f0fdf4; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <div>
-          <div style="font-size: 13px; font-weight: 600; color: #0f172a;">Manage Assignments</div>
-          <div style="font-size: 11px; color: #94a3b8; margin-top: 1px;">Assign or return assets</div>
-        </div>
-        <svg style="margin-left: auto; flex-shrink: 0;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-      </a>
+      <div class="ds-feed">
+        {% if recent_activity %}
+          {% for item in recent_activity %}
+          <a href="{{ item.url }}" class="ds-fi">
 
-      <a href="{{ url_for('assets.bulk_upload') }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 1px solid #e2e8f0; border-radius: 9px; text-decoration: none; transition: background 0.15s, border-color 0.15s;" class="quick-action">
-        <div style="width: 32px; height: 32px; border-radius: 8px; background: #faf5ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
-        </div>
-        <div>
-          <div style="font-size: 13px; font-weight: 600; color: #0f172a;">Bulk Upload CSV</div>
-          <div style="font-size: 11px; color: #94a3b8; margin-top: 1px;">Import multiple assets at once</div>
-        </div>
-        <svg style="margin-left: auto; flex-shrink: 0;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-      </a>
+            <div class="ds-fi-ic ds-fi-{{ item.type }}">
+              {% if item.type == 'assign' %}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              {% elif item.type == 'return' %}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="1 4 1 10 7 10"/>
+                  <path d="M3.51 15a9 9 0 1 0 .49-5.1"/>
+                </svg>
+              {% elif item.type == 'issue' %}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              {% elif item.type == 'repair' %}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                </svg>
+              {% else %}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="7" width="20" height="14" rx="2"/>
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                </svg>
+              {% endif %}
+            </div>
 
-      <a href="{{ url_for('reports.index') }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 1px solid #e2e8f0; border-radius: 9px; text-decoration: none; transition: background 0.15s, border-color 0.15s;" class="quick-action">
-        <div style="width: 32px; height: 32px; border-radius: 8px; background: #fff7ed; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        </div>
-        <div>
-          <div style="font-size: 13px; font-weight: 600; color: #0f172a;">Export Reports</div>
-          <div style="font-size: 11px; color: #94a3b8; margin-top: 1px;">Download CSV or Excel</div>
-        </div>
-        <svg style="margin-left: auto; flex-shrink: 0;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-      </a>
+            <div class="ds-fi-body">
+              <div class="ds-fi-main">{{ item.title }}</div>
+              <div class="ds-fi-detail">{{ item.detail }}</div>
+            </div>
+            <div class="ds-fi-time">{{ item.time_ago }}</div>
 
+          </a>
+          {% endfor %}
+        {% else %}
+          <div class="ds-fi-empty">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#e2e8f0" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            No recent activity
+          </div>
+        {% endif %}
+      </div>
     </div>
-  </div>
 
-  <!-- Stock Intelligence card -->
-  <div class="card" style="display: flex; flex-direction: column;">
-    <div class="card-header">
-      <h3 class="card-title">Stock Intelligence</h3>
-      <a href="{{ url_for('dashboard.stock') }}" style="font-size: 12px; color: #3b82f6; text-decoration: none; font-weight: 500;">View all →</a>
-    </div>
+    <!-- Bottom Row: Quick Actions + Warranty -->
+    <div class="ds-bottom-row">
 
-    <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
-      <!-- Summary metrics -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 4px;">
-        <div style="text-align: center; padding: 12px 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9;">
-          <div style="font-size: 20px; font-weight: 700; color: #0f172a;">{{ stats.instock }}</div>
-          <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px;">In Stock</div>
+      <!-- Quick Actions -->
+      <div class="ds-card">
+        <div class="ds-card-hdr">
+          <div class="ds-card-title">Quick Actions</div>
         </div>
-        <div style="text-align: center; padding: 12px 8px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0;">
-          <div style="font-size: 20px; font-weight: 700; color: #15803d;">{{ working_count }}</div>
-          <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px;">Working</div>
-        </div>
-        <div style="text-align: center; padding: 12px 8px; background: {% if instock_with_issues > 0 %}#fef2f2{% else %}#f8fafc{% endif %}; border-radius: 8px; border: 1px solid {% if instock_with_issues > 0 %}#fecaca{% else %}#f1f5f9{% endif %};">
-          <div style="font-size: 20px; font-weight: 700; color: {% if instock_with_issues > 0 %}#dc2626{% else %}#94a3b8{% endif %};">{{ instock_with_issues }}</div>
-          <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px;">Has Issues</div>
+        <div class="ds-qa-list">
+
+          <a href="{{ url_for('assets.add') }}" class="ds-qa">
+            <div class="ds-qa-ic" style="background:#eff6ff;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </div>
+            <div>
+              <div class="ds-qa-lbl">Add New Asset</div>
+              <div class="ds-qa-desc">Register hardware or software</div>
+            </div>
+            <svg class="ds-qa-arr" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </a>
+
+          <a href="{{ url_for('assignments.workspace') }}" class="ds-qa">
+            <div class="ds-qa-ic" style="background:#f0fdf4;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div>
+              <div class="ds-qa-lbl">Manage Assignments</div>
+              <div class="ds-qa-desc">Assign or return assets</div>
+            </div>
+            <svg class="ds-qa-arr" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </a>
+
+          <a href="{{ url_for('assets.bulk_upload') }}" class="ds-qa">
+            <div class="ds-qa-ic" style="background:#faf5ff;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+            </div>
+            <div>
+              <div class="ds-qa-lbl">Bulk Upload CSV</div>
+              <div class="ds-qa-desc">Import multiple assets at once</div>
+            </div>
+            <svg class="ds-qa-arr" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </a>
+
+          <a href="{{ url_for('reports.index') }}" class="ds-qa">
+            <div class="ds-qa-ic" style="background:#fff7ed;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <div>
+              <div class="ds-qa-lbl">Export Reports</div>
+              <div class="ds-qa-desc">Download CSV or Excel</div>
+            </div>
+            <svg class="ds-qa-arr" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </a>
+
+          <a href="{{ url_for('dashboard.stock') }}" class="ds-qa">
+            <div class="ds-qa-ic" style="background:#f0f9ff;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div>
+              <div class="ds-qa-lbl">Stock Intelligence</div>
+              <div class="ds-qa-desc">Model health &amp; utilization</div>
+            </div>
+            <svg class="ds-qa-arr" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </a>
+
         </div>
       </div>
 
-      <!-- Model bar chart preview -->
-      {% if model_breakdown %}
-      {% set top_models = model_breakdown[:5] %}
-      <div style="display: flex; flex-direction: column; gap: 7px; padding: 4px 0;">
-        {% set max_val = top_models[0].total if top_models else 1 %}
-        {% for m in top_models %}
-        <div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-            <span style="font-size: 12px; color: #475569; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;">{{ m.model }}</span>
-            <span style="font-size: 12px; color: #64748b; font-weight: 600; flex-shrink: 0; margin-left: 8px;">{{ m.total }}</span>
+      <!-- Warranty -->
+      <div class="ds-card">
+        <div class="ds-card-hdr">
+          <div class="ds-card-title">Warranty Status</div>
+          <a href="{{ url_for('assets.list') }}?warranty=expired" class="ds-card-link">Details →</a>
+        </div>
+        <div class="ds-w-rows">
+
+          <a href="{{ url_for('assets.list') }}?warranty=active" class="ds-wr ds-wr-g">
+            <div class="ds-wr-lft">
+              <div class="ds-wr-ic ds-wr-ic-g">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </div>
+              <span class="ds-wr-lbl ds-wr-lbl-g">Active</span>
+            </div>
+            <span class="ds-wr-val ds-wr-val-g">{{ warranty_stats.active }}</span>
+          </a>
+
+          <a href="{{ url_for('assets.list') }}?warranty=expiring" class="ds-wr ds-wr-a">
+            <div class="ds-wr-lft">
+              <div class="ds-wr-ic ds-wr-ic-a">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <span class="ds-wr-lbl ds-wr-lbl-a">Expiring &lt;60 days</span>
+            </div>
+            <span class="ds-wr-val ds-wr-val-a">{{ warranty_stats.expiring }}</span>
+          </a>
+
+          <a href="{{ url_for('assets.list') }}?warranty=expired" class="ds-wr ds-wr-r">
+            <div class="ds-wr-lft">
+              <div class="ds-wr-ic ds-wr-ic-r">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <span class="ds-wr-lbl ds-wr-lbl-r">Expired</span>
+            </div>
+            <span class="ds-wr-val ds-wr-val-r">{{ warranty_stats.expired }}</span>
+          </a>
+
+          {% if overdue_maintenance > 0 %}
+          <a href="{{ url_for('maintenance.list') }}" class="ds-wr" style="background:#fff7ed; border:1.5px solid #fed7aa;">
+            <div class="ds-wr-lft">
+              <div class="ds-wr-ic ds-wr-ic-o">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+              </div>
+              <span class="ds-wr-lbl" style="color:#c2410c;">Overdue Maintenance</span>
+            </div>
+            <span class="ds-wr-val" style="color:#c2410c;">{{ overdue_maintenance }}</span>
+          </a>
+          {% endif %}
+
+          <!-- Portfolio Value mini row -->
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#faf5ff; border:1.5px solid #e9d5ff; border-radius:10px;">
+            <div style="display:flex; align-items:center; gap:9px;">
+              <div style="width:28px; height:28px; border-radius:7px; background:#f3e8ff; color:#7c3aed; display:flex; align-items:center; justify-content:center;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <span style="font-size:12.5px; font-weight:600; color:#5b21b6;">Portfolio Value</span>
+            </div>
+            <span style="font-size:14px; font-weight:900; letter-spacing:-.03em; color:#7c3aed;">₹{{ '{:,.0f}'.format(cost_stats.total_portfolio) }}</span>
           </div>
-          <div style="height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; display: flex;">
-            <div style="height: 100%; width: {{ [m.working / max_val * 100, 100]|min|int }}%; background: #10b981; transition: width 0.4s;"></div>
-            <div style="height: 100%; width: {{ [m.not_working / max_val * 100, 100]|min|int }}%; background: #ef4444; transition: width 0.4s;"></div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="ds-right">
+
+    <!-- Deployment Rate Card -->
+    <div class="ds-deploy">
+      <div class="ds-dc-lbl">Deployment Rate</div>
+      <div class="ds-dc-pct">{{ deploy_pct }}%</div>
+      <div class="ds-dc-desc">{{ stats.deployed }} of {{ active_inv }} active assets deployed</div>
+      <div class="ds-dc-track">
+        <div class="ds-dc-fill" style="width:{{ [deploy_pct, 100]|min }}%;"></div>
+      </div>
+      <div class="ds-dc-pills">
+        <div class="ds-dc-pill"><strong>{{ stats.deployed }}</strong> deployed</div>
+        <div class="ds-dc-pill"><strong>{{ stats.instock }}</strong> in stock</div>
+        {% if stats.repair > 0 %}
+        <div class="ds-dc-pill"><strong>{{ stats.repair }}</strong> in repair</div>
+        {% endif %}
+        {% if stats.retired > 0 %}
+        <div class="ds-dc-pill"><strong>{{ stats.retired }}</strong> retired</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Stock Health Card -->
+    <div class="ds-card" style="flex:1;">
+      <div class="ds-card-hdr">
+        <div>
+          <div class="ds-card-title">Stock Health</div>
+          <div class="ds-card-sub">In-stock asset condition</div>
+        </div>
+        <a href="{{ url_for('dashboard.stock') }}" class="ds-card-link">Full view →</a>
+      </div>
+
+      <div class="ds-sn-grid">
+        <div class="ds-sn ds-sn-n">
+          <div class="ds-sn-v">{{ stats.instock }}</div>
+          <div class="ds-sn-l">In Stock</div>
+        </div>
+        <div class="ds-sn ds-sn-g">
+          <div class="ds-sn-v ds-sn-vg">{{ working_count }}</div>
+          <div class="ds-sn-l">Working</div>
+        </div>
+        <div class="ds-sn {% if instock_with_issues > 0 %}ds-sn-r{% else %}ds-sn-n{% endif %}">
+          <div class="ds-sn-v {% if instock_with_issues > 0 %}ds-sn-vr{% endif %}">{{ instock_with_issues }}</div>
+          <div class="ds-sn-l">Has Issues</div>
+        </div>
+      </div>
+
+      {% if model_breakdown %}
+      <div class="ds-model-rows">
+        {% set top5 = model_breakdown[:5] %}
+        {% set max_val = top5[0].total if top5 else 1 %}
+        {% for m in top5 %}
+        {% set ok_pct = [m.working / max_val * 100, 100]|min|int %}
+        {% set bad_pct = [m.not_working / max_val * 100, 100]|min|int %}
+        {% set health = (m.working / m.total * 100)|int if m.total > 0 else 100 %}
+        <div>
+          <div class="ds-mr-top">
+            <span class="ds-mr-name">{{ m.model }}</span>
+            <div class="ds-mr-right">
+              <span class="ds-mr-pct">{{ health }}%</span>
+              <span class="ds-mr-cnt">{{ m.total }}</span>
+            </div>
+          </div>
+          <div class="ds-mr-track">
+            <div class="ds-mr-ok" style="width:{{ ok_pct }}%;"></div>
+            <div class="ds-mr-bad" style="width:{{ bad_pct }}%;"></div>
           </div>
         </div>
         {% endfor %}
         {% if model_breakdown|length > 5 %}
-        <div style="font-size: 11px; color: #94a3b8; text-align: center; padding-top: 2px;">+{{ model_breakdown|length - 5 }} more models</div>
+        <div style="font-size:11px; color:#94a3b8; text-align:center; padding:2px 0 4px;">+{{ model_breakdown|length - 5 }} more models</div>
         {% endif %}
       </div>
+      {% else %}
+      <div style="padding:24px 14px; text-align:center; color:#94a3b8; font-size:12px;">No in-stock assets</div>
       {% endif %}
 
-      <a href="{{ url_for('dashboard.stock') }}" class="btn btn-primary" style="margin-top: auto; justify-content: center; width: 100%;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      <a href="{{ url_for('dashboard.stock') }}" class="ds-stock-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         Open Stock Intelligence
       </a>
     </div>
+
   </div>
-
 </div>
-
-<script nonce="{{ g.csp_nonce }}">
-(function(){
-  const statusData = {{ status_breakdown | tojson }};
-  const labels = Object.keys(statusData).filter(k => statusData[k] > 0);
-  const values = labels.map(k => statusData[k]);
-  const colorMap = {
-    instock: '#10b981', deployed: '#3b82f6', repair: '#f59e0b',
-    sold: '#94a3b8', retired: '#cbd5e1', ordered: '#8b5cf6', received: '#06b6d4'
-  };
-  const colors = labels.map(l => colorMap[l] || '#94a3b8');
-
-  const ctx1 = document.getElementById('statusChart');
-  if (ctx1) {
-    new Chart(ctx1, {
-      type: 'doughnut',
-      data: {
-        labels: labels.map(l => l.charAt(0).toUpperCase() + l.slice(1)),
-        datasets: [{
-          data: values, backgroundColor: colors,
-          borderWidth: 3, borderColor: '#fff', hoverOffset: 5
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: {
-          callbacks: { label: function(c) { return ' ' + c.label + ': ' + c.raw; } }
-        }},
-        cutout: '68%'
-      }
-    });
-  }
-
-  const models = {{ model_breakdown | tojson }};
-  const ctx2 = document.getElementById('modelChart');
-  if (ctx2 && models.length > 0) {
-    new Chart(ctx2, {
-      type: 'bar',
-      data: {
-        labels: models.map(m => m.model.length > 16 ? m.model.substring(0,14) + '…' : m.model),
-        datasets: [
-          { label: 'Working',     data: models.map(m => m.working),     backgroundColor: '#10b981', borderRadius: 3, borderSkipped: false, stack: 'stock' },
-          { label: 'Has Issues',  data: models.map(m => m.not_working), backgroundColor: '#f97316', borderRadius: 3, borderSkipped: false, stack: 'stock' }
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 11 }, color: '#64748b' } },
-          tooltip: { mode: 'index', intersect: false }
-        },
-        scales: {
-          y: { beginAtZero: true, stacked: true, ticks: { stepSize: 1, color: '#94a3b8', font: { size: 10 } }, grid: { color: '#f1f5f9' }, border: { display: false } },
-          x: { stacked: true, grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }
-        }
-      }
-    });
-  }
-
-  // Quick action hover
-  document.querySelectorAll('.quick-action').forEach(function(el) {
-    el.addEventListener('mouseenter', function() {
-      el.style.background = '#f8fafc';
-      el.style.borderColor = '#cbd5e1';
-    });
-    el.addEventListener('mouseleave', function() {
-      el.style.background = '';
-      el.style.borderColor = '#e2e8f0';
-    });
-  });
-})();
-</script>
 
 {% endblock %}

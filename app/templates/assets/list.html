@@ -5,6 +5,9 @@
   <div>
     <h1 class="page-title">Asset Inventory</h1>
     <p class="page-subtitle">{{ total }} asset{{ 's' if total != 1 else '' }} found</p>
+    <p class="page-subtitle" style="font-size: 12px; margin-top: 4px;">
+      Portfolio split: {{ inventory_summary.active }} active | {{ inventory_summary.sold }} sold{% if inventory_summary.retired %} | {{ inventory_summary.retired }} retired{% endif %} (Total {{ inventory_summary.total }})
+    </p>
   </div>
   <div class="page-actions" style="display: flex; gap: 8px;">
     {% if session.get('user', {}).get('role') in ('admin', 'manager') %}

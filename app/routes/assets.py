@@ -4,7 +4,7 @@ import csv
 import io
 from datetime import datetime, date
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app, send_file, make_response
-from sqlalchemy import func
+from sqlalchemy import func, case
 from werkzeug.utils import secure_filename
 
 from app.auth.decorators import login_required, role_required
@@ -110,11 +110,27 @@ def list():
 
     categories = [r[0] for r in db.session.query(func.distinct(Asset.category)).filter(Asset.category.isnot(None)).all()]
 
+    portfolio_agg = db.session.query(
+        func.count(Asset.id),
+        func.sum(case((func.lower(Asset.status) == "sold", 1), else_=0)),
+        func.sum(case((func.lower(Asset.status) == "retired", 1), else_=0)),
+    ).first()
+    portfolio_total = int(portfolio_agg[0] or 0)
+    portfolio_sold = int(portfolio_agg[1] or 0)
+    portfolio_retired = int(portfolio_agg[2] or 0)
+    inventory_summary = {
+        "total": portfolio_total,
+        "active": max(portfolio_total - portfolio_sold - portfolio_retired, 0),
+        "sold": portfolio_sold,
+        "retired": portfolio_retired,
+    }
+
     resp = make_response(render_template("assets/list.html",
         assets=assets, page=page, pages=pages, total=total,
         q=q, status_f=status_f, category_f=category_f, warranty_f=warranty_f,
         model_f=model_f, issues_f=issues_f,
-        categories=categories, valid_statuses=VALID_STATUSES))
+        categories=categories, valid_statuses=VALID_STATUSES,
+        inventory_summary=inventory_summary))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     return resp
 
