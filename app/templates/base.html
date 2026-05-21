@@ -171,7 +171,7 @@
         <svg style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="text" name="q" placeholder="Search tickets..." autocomplete="off"
           style="padding: 7px 12px 7px 32px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; width: 260px; background: #f8fafc; outline: none; font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s;"
-          onfocus="this.style.borderColor='#7c3aed';this.style.boxShadow='0 0 0 3px rgba(124,58,237,0.15)'"
+          onfocus="this.style.borderColor='#7c3aed';this.style.boxShadow='0 0 0 3px rgba(124,58,237,.12)'"
           onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow=''">
       </form>
       {% else %}
@@ -408,8 +408,8 @@ window.addEventListener('pageshow', function(e) {
 
   input.addEventListener('focus', function() {
     if (this.value.trim().length >= 2) dropdown.style.display = 'block';
-    this.style.borderColor = '#3b82f6';
-    this.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.15)';
+    this.style.borderColor = '#7c3aed';
+    this.style.boxShadow = '0 0 0 3px rgba(124,58,237,.12)';
   });
   input.addEventListener('blur', function() {
     setTimeout(() => { dropdown.style.display = 'none'; }, 200);

@@ -4,10 +4,10 @@
 <style>
 .si-kpi {
   background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border: 1.5px solid #e8ecf3;
+  border-radius: 14px;
   padding: 16px 20px;
-  border-left: 3px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
 }
 .si-kpi-label { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
 .si-kpi-value { font-size: 28px; font-weight: 800; color: #0f172a; line-height: 1; }
@@ -49,7 +49,7 @@
 .si-count:hover { opacity: 0.8; }
 .si-count-default { background: #f1f5f9; color: #475569; }
 .si-count-green   { background: #dcfce7; color: #15803d; }
-.si-count-blue    { background: #dbeafe; color: #1d4ed8; }
+.si-count-blue    { background: #f5f3ff; color: #7c3aed; }
 .si-count-red     { background: #fee2e2; color: #dc2626; }
 .si-count-orange  { background: #ffedd5; color: #c2410c; }
 .si-count-zero    { background: transparent; color: #cbd5e1; font-weight: 500; }
@@ -65,7 +65,7 @@
   font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit;
   transition: all 0.15s;
 }
-.si-tab-pill.active { background: #0f172a; color: #fff; border-color: #0f172a; }
+.si-tab-pill.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
 .si-tab-pill:hover:not(.active) { background: #f8fafc; border-color: #cbd5e1; }
 </style>
 {% endblock %}
@@ -89,28 +89,28 @@
 
 <!-- KPI summary -->
 <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px;">
-  <div class="si-kpi" style="border-left-color: #64748b;">
+  <div class="si-kpi">
     <div class="si-kpi-label">Total In Stock</div>
     <div class="si-kpi-value">{{ totals.instock }}</div>
     <div class="si-kpi-sub">of {{ totals.total }} total assets</div>
   </div>
-  <div class="si-kpi" style="border-left-color: #10b981;">
+  <div class="si-kpi">
     <div class="si-kpi-label">Working</div>
     <div class="si-kpi-value" style="color: #059669;">{{ totals.working }}</div>
     <div class="si-kpi-sub" style="color: #10b981;">Ready to deploy</div>
   </div>
   {% set has_issues_count = totals.instock - totals.working %}
-  <div class="si-kpi" style="border-left-color: {% if has_issues_count > 0 %}#ef4444{% else %}#e2e8f0{% endif %};">
+  <div class="si-kpi">
     <div class="si-kpi-label">Has Issues</div>
     <div class="si-kpi-value" style="color: {% if has_issues_count > 0 %}#dc2626{% else %}#0f172a{% endif %};">{{ has_issues_count }}</div>
     <div class="si-kpi-sub">{{ totals.working }} + {{ has_issues_count }} = {{ totals.instock }} in stock</div>
   </div>
-  <div class="si-kpi" style="border-left-color: #3b82f6;">
+  <div class="si-kpi">
     <div class="si-kpi-label">Deployed</div>
-    <div class="si-kpi-value" style="color: #1d4ed8;">{{ totals.deployed }}</div>
-    <div class="si-kpi-sub" style="color: #3b82f6;">Assigned to users</div>
+    <div class="si-kpi-value" style="color: #7c3aed;">{{ totals.deployed }}</div>
+    <div class="si-kpi-sub">Assigned to users</div>
   </div>
-  <div class="si-kpi" style="border-left-color: {% if totals.utilization >= 80 %}#10b981{% elif totals.utilization >= 50 %}#f59e0b{% else %}#ef4444{% endif %};">
+  <div class="si-kpi">
     <div class="si-kpi-label">Utilization</div>
     <div class="si-kpi-value" style="color: {% if totals.utilization >= 80 %}#059669{% elif totals.utilization >= 50 %}#d97706{% else %}#dc2626{% endif %};">{{ totals.utilization }}%</div>
     <div class="si-kpi-sub">Deployed / available</div>
@@ -258,7 +258,7 @@
               <span style="font-size: 11px; color: #64748b;">{{ m.utilization }}%</span>
             </div>
             <div class="si-bar-track">
-              <div class="si-bar-fill" style="width: {{ m.utilization }}%; background: #3b82f6;"></div>
+              <div class="si-bar-fill" style="width: {{ m.utilization }}%; background: linear-gradient(90deg,#7c3aed,#a78bfa);"></div>
             </div>
           </div>
           {% else %}

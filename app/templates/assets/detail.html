@@ -49,10 +49,10 @@
     <div style="font-size: 22px; font-weight: 700; color: {{ '#ef4444' if open_issues|length > 0 else '#10b981' }};">{{ open_issues|length }}</div>
   </div>
   {% if active_assignment %}
-  <div class="card" style="flex: 2; min-width: 200px; padding: 16px; margin-bottom: 0; background: #eff6ff; border-color: #bfdbfe;">
-    <div style="font-size: 12px; color: #1d4ed8; margin-bottom: 4px;">Currently Assigned To</div>
-    <div style="font-size: 17px; font-weight: 600; color: #1e40af;">{{ active_assignment.user_name }}</div>
-    <div style="font-size: 12px; color: #3b82f6;">Since {{ active_assignment.assigned_date.strftime('%b %d, %Y') if active_assignment.assigned_date else '—' }}</div>
+  <div class="card" style="flex: 2; min-width: 200px; padding: 16px; margin-bottom: 0; background: #f5f3ff; border-color: #e9d5ff;">
+    <div style="font-size: 12px; color: #7c3aed; margin-bottom: 4px;">Currently Assigned To</div>
+    <div style="font-size: 17px; font-weight: 600; color: #6d28d9;">{{ active_assignment.user_name }}</div>
+    <div style="font-size: 12px; color: #7c3aed;">Since {{ active_assignment.assigned_date.strftime('%b %d, %Y') if active_assignment.assigned_date else '—' }}</div>
   </div>
   {% endif %}
 </div>
@@ -128,7 +128,7 @@
           <td>{{ a.assigned_date.strftime('%b %d, %Y') if a.assigned_date else '—' }}</td>
           <td>
             {% if a.returned_at %}{{ a.returned_at.strftime('%b %d, %Y') }}
-            {% else %}<span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 500;">Active</span>{% endif %}
+            {% else %}<span style="background: #f5f3ff; color: #7c3aed; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 500;">Active</span>{% endif %}
           </td>
           <td style="font-size: 13px; color: #64748b;">{{ a.condition_on_issue or '—' }}</td>
           <td style="font-size: 13px; color: #64748b;">{{ a.condition_on_return or '—' }}</td>
@@ -184,7 +184,7 @@
         <tr>
           <td style="font-size: 14px; max-width: 300px;">{{ issue.issue_text }}</td>
           <td><span style="background: {{ '#fee2e2' if issue.severity == 'high' else '#fef3c7' if issue.severity == 'medium' else '#d1fae5' }}; color: {{ '#991b1b' if issue.severity == 'high' else '#92400e' if issue.severity == 'medium' else '#065f46' }}; padding: 2px 8px; border-radius: 10px; font-size: 12px;">{{ issue.severity.title() }}</span></td>
-          <td><span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 10px; font-size: 12px;">{{ issue.status.title() }}</span></td>
+          <td><span style="background: #f5f3ff; color: #7c3aed; padding: 2px 8px; border-radius: 10px; font-size: 12px;">{{ issue.status.title() }}</span></td>
           <td style="font-size: 13px; color: #64748b;">{{ issue.reported_by or '—' }}</td>
           <td style="font-size: 12px; color: #94a3b8;">{{ issue.date_reported.strftime('%b %d, %Y') if issue.date_reported else '—' }}</td>
           <td>

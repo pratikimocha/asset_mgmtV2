@@ -51,7 +51,7 @@
       {% set is_overdue = task.status == 'scheduled' and task.scheduled_date and task.scheduled_date < today %}
       <tr style="{{ 'background: #fff7ed;' if is_overdue else '' }}">
         <td>
-          <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" style="color: #3b82f6; text-decoration: none; font-weight: 600; font-size: 13px;">{{ asset.serial_number }}</a>
+          <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" style="color: #7c3aed; text-decoration: none; font-weight: 600; font-size: 13px;">{{ asset.serial_number }}</a>
           <div style="font-size: 12px; color: #64748b;">{{ asset.model or '' }}</div>
         </td>
         <td style="font-size: 13px; font-weight: 500;">{{ task.task_type or '—' }}</td>

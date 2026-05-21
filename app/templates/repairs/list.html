@@ -36,7 +36,7 @@
       {% for repair, asset in repairs %}
       <tr>
         <td>
-          <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" style="color: #3b82f6; text-decoration: none; font-weight: 600; font-size: 13px;">{{ asset.serial_number }}</a>
+          <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" style="color: #7c3aed; text-decoration: none; font-weight: 600; font-size: 13px;">{{ asset.serial_number }}</a>
           <div style="font-size: 12px; color: #64748b;">{{ asset.model or '' }}</div>
         </td>
         <td style="max-width: 280px; font-size: 14px;">{{ repair.repair_text or '—' }}</td>
@@ -44,7 +44,7 @@
           {% if repair.status == 'completed' %}
           <span style="background: #d1fae5; color: #065f46; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;">✓ Completed</span>
           {% else %}
-          <span style="background: #dbeafe; color: #1d4ed8; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;">⟳ In Progress</span>
+          <span style="background: #f5f3ff; color: #7c3aed; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;">⟳ In Progress</span>
           {% endif %}
         </td>
         <td style="font-size: 13px; font-weight: 500;">{{ '₹{:,.0f}'.format(repair.cost) if repair.cost else '—' }}</td>

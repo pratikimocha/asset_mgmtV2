@@ -28,7 +28,7 @@
 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
   <span style="font-size: 12px; color: #94a3b8; font-weight: 500;">Filtered from Stock Intelligence:</span>
   {% if model_f %}
-  <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 20px; font-size: 12px; font-weight: 600; color: #1d4ed8;">
+  <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f5f3ff; border: 1px solid #e9d5ff; border-radius: 20px; font-size: 12px; font-weight: 600; color: #7c3aed;">
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
     {{ model_f }}
   </span>
@@ -87,8 +87,8 @@
 </form>
 
 <!-- Bulk action bar (shown when items selected) -->
-<div id="bulk-bar" style="display:none; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; align-items: center; gap: 12px;">
-  <span id="bulk-count" style="font-weight: 600; color: #1d4ed8;">0 selected</span>
+<div id="bulk-bar" style="display:none; background: #f5f3ff; border: 1.5px solid #e9d5ff; border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; align-items: center; gap: 12px;">
+  <span id="bulk-count" style="font-weight: 600; color: #7c3aed;">0 selected</span>
   {% if session.get('user', {}).get('role') in ('admin', 'manager') %}
   <select id="bulk-status-select" class="filter-input" style="width: auto;">
     <option value="">Change Status...</option>
@@ -176,7 +176,7 @@
     <div style="font-size: 40px; margin-bottom: 12px;">📦</div>
     <p style="color: #64748b; font-size: 15px;">No assets found</p>
     {% if q or status_f %}
-    <a href="{{ url_for('assets.list') }}" style="color: #3b82f6; text-decoration: none; font-size: 14px;">Clear filters</a>
+    <a href="{{ url_for('assets.list') }}" style="color: #7c3aed; text-decoration: none; font-size: 14px;">Clear filters</a>
     {% else %}
     <a href="{{ url_for('assets.add') }}" class="btn btn-primary" style="margin-top: 16px;">Add First Asset</a>
     {% endif %}
