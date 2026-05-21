@@ -56,7 +56,12 @@
 .ds-right { display: flex; flex-direction: column; gap: 14px; }
 
 /* Activity Feed */
-.ds-feed { padding: 4px 16px 10px; display: flex; flex-direction: column; gap: 0; }
+.ds-feed { padding: 4px 16px 10px; display: flex; flex-direction: column; gap: 0;
+  max-height: 348px; overflow-y: auto; }
+.ds-feed::-webkit-scrollbar { width: 4px; }
+.ds-feed::-webkit-scrollbar-track { background: transparent; }
+.ds-feed::-webkit-scrollbar-thumb { background: #e8ecf3; border-radius: 4px; }
+.ds-feed::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
 .ds-fi { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0;
   border-bottom: 1px solid #f8fafc; text-decoration: none; transition: background .1s; }
 .ds-fi:last-child { border-bottom: none; }
